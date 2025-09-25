@@ -3,3 +3,6 @@ include/config.h
 *AppDir/
 *AppImage
 *.tar.gz
+.pio/
+sdkconfig.*
+!sdkconfig.defaults*

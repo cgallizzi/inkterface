@@ -56,6 +56,8 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     QTDIR=/usr/lib/qt6 ./appimagetool-*.AppImage deploy $APP_DIR/usr/share/applications/*.desktop
     VERSION=1.0 ./appimagetool-*.AppImage $APP_DIR
 
+    # TODO: remove unecessary large files from appdir
+
     echo "Packaging release..."
     mkdir -p $DIST_DIR
     mv mango-frunk-*.AppImage $DIST_DIR/.
