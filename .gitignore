@@ -1,0 +1,5 @@
+build*/
+include/config.h
+*AppDir/
+*AppImage
+*.tar.gz

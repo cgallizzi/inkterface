@@ -1,0 +1,11 @@
+#pragma once
+
+// pull in project config variables from CMakeLists.txt
+#define PROJECT_NAME "@PROJECT_NAME@"
+#define PROJECT_DISPLAY_NAME "@PROJECT_DISPLAY_NAME@"
+#define PROJECT_VER "@PROJECT_VERSION@"
+#define PROJECT_VER_MAJOR "@PROJECT_VERSION_MAJOR@"
+#define PROJECT_VER_MINOR "@PROJECT_VERSION_MINOR@"
+#define PROJECT_VER_PATCH "@PROJECT_VERSION_PATCH@"
+#define ORG_NAME "@ORG_NAME@"
+#define ORG_DOMAIN "@ORG_DOMAIN@"

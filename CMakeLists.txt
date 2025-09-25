@@ -1,0 +1,34 @@
+cmake_minimum_required(VERSION 3.12.0)
+
+project(mango-frunk VERSION 1.0.0 LANGUAGES CXX)
+set(PROJECT_DISPLAY_NAME "MangoFrunk")
+set(ORG_NAME "Valve")
+set(ORG_DOMAIN "valvesoftware.com")
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(QT_MODULES
+    Core
+    Bluetooth
+)
+find_package(Qt6 COMPONENTS ${QT_MODULES} REQUIRED)
+list(TRANSFORM QT_MODULES PREPEND Qt${QT_VERSION_MAJOR}::)
+
+set(MODULES)
+
+file(GLOB_RECURSE PROJECT_SOURCES ${PROJECT_SOURCE_DIR}/src/*.*)
+file(GLOB_RECURSE PROJECT_HEADERS ${PROJECT_SOURCE_DIR}/include/*.*)
+
+qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${PROJECT_HEADERS})
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${QT_MODULES} ${MODULES})
+target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W3 /WX /wd4702 /wd4127>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
+)
+configure_file(${PROJECT_SOURCE_DIR}/include/config.h.in ${PROJECT_SOURCE_DIR}/include/config.h)
+# if (Qt6_VERSION VERSION_GREATER_EQUAL 6.8)
+#     qt_policy(SET QTP0004 NEW)
+# endif()
