@@ -25,7 +25,7 @@ int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 
     int exitCode = EXIT_SUCCESS;
 
-    QTimer::singleShot(5000, &app, SLOT(quit()));
+    // QTimer::singleShot(5000, &app, SLOT(quit()));
 
     app.exec();
     return exitCode;

@@ -14,12 +14,12 @@ class Frunk : public QObject
   private slots:
     void onDiscoveryEnded();
     void onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error);
-    void onDiscoveryDiscovered(const QBluetoothDeviceInfo &info);
-    void onDiscoveryUpdated(const QBluetoothDeviceInfo &info,
-                            QBluetoothDeviceInfo::Fields updatedFields);
+    void onControllerStateChanged();
+    void onControllerSvcChanged();
 
   private:
     QBluetoothDeviceDiscoveryAgent *m_discoveryAgent = nullptr;
+    QLowEnergyController* m_controller = nullptr;
 };
 
 #endif /* FRUNK_HPP */
