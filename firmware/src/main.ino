@@ -93,10 +93,10 @@ void setup()
 void loop()
 {
     delay(2000);
-    Serial.print("current power: ");
-    Serial.println(NimBLEDevice::getPower());
+    // Serial.print("current power: ");
+    // Serial.println(NimBLEDevice::getPower());
 
-    Serial.println("Checking on peers...");
+    // Serial.println("Checking on peers...");
     auto peers = BLE_SERVER->getPeerDevices();
     for (auto peer : peers) {
         auto rssi = BLE_SERVER->getClient(peer)->getRssi();
