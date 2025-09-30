@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>@MACOSX_BUNDLE_GUI_IDENTIFIER@</string>
+	<key>CFBundleVersion</key>
+	<string>@MACOSX_BUNDLE_BUNDLE_VERSION@</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@MACOSX_BUNDLE_SHORT_VERSION_STRING@</string>
+	<key>CFBundleExecutable</key>
+	<string>@EXECUTABLE_NAME@</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Allow bluetooth access.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Allow bluetooth access.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
+</dict>
+</plist>
