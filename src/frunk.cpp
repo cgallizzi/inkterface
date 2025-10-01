@@ -1,8 +1,13 @@
 #include "frunk.hpp"
 
+#include <iterator>
+
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QDataStream>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
 #include <QObject>
 #include <QSysInfo>
 #include <QUuid>
@@ -23,10 +28,15 @@ Frunk::Frunk(QObject *parent)
     : QObject(parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_reconTimer(new QTimer(this))
+    , m_updateTimer(new QTimer(this))
 {
     m_reconTimer->setSingleShot(false);
     m_reconTimer->setInterval(2000);
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
+
+    m_updateTimer->setSingleShot(false);
+    m_updateTimer->setInterval(15000);
+    connect(m_updateTimer, &QTimer::timeout, this, &Frunk::onUpdate);
 
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this,
             &Frunk::onDiscoveryEnded);
@@ -148,22 +158,19 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     }
     qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
 
-    writeLine(TOPLINE_UUID, QSysInfo::machineHostName().toStdString());
-    writeLine(MIDLINE_UUID, "chipolux is signed in");
-    writeLine(BOTLINE_UUID, "Playing Silksong (and dying a lot...)");
-    writeKeyVal(0, "OS", QSysInfo::productVersion().toStdString());
-    flushDisplay();
+    QTimer::singleShot(1000, this, &Frunk::onUpdate);
+    m_updateTimer->start();
 }
 
-void Frunk::writeLine(const QUuid &uuid, const std::string &value)
+void Frunk::writeLine(const QUuid &uuid, const QString &value)
 {
     auto c = m_service->characteristic(uuid);
     if (c.isValid()) {
-        m_service->writeCharacteristic(c, value.substr(0, 42).c_str());
+        m_service->writeCharacteristic(c, value.left(42).toStdString().c_str());
     }
 }
 
-void Frunk::writeKeyVal(const uint16_t &index, const std::string &key, const std::string &value)
+void Frunk::writeKeyVal(const uint16_t &index, const QString &key, const QString &value)
 {
     auto c = m_service->characteristic(KEYVAL_UUID);
     if (c.isValid()) {
@@ -172,8 +179,8 @@ void Frunk::writeKeyVal(const uint16_t &index, const std::string &key, const std
         s.setByteOrder(QDataStream::ByteOrder(QSysInfo::ByteOrder));
 
         s << index;
-        s.writeRawData(key.substr(0, 31).c_str(), 32);
-        s.writeRawData(value.substr(0, 31).c_str(), 32);
+        s.writeRawData(key.left(31).toStdString().c_str(), 32);
+        s.writeRawData(value.left(31).toStdString().c_str(), 32);
         m_service->writeCharacteristic(c, ba);
     }
 }
@@ -211,4 +218,76 @@ void Frunk::startDiscovery()
         return;
     m_discoveryAgent->setLowEnergyDiscoveryTimeout(15000);
     m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
+}
+
+void Frunk::onUpdate()
+{
+    collectSystemState();
+    sendSystemState();
+}
+
+void Frunk::collectSystemState()
+{
+    state.topLine = QSysInfo::machineHostName();
+    state.midLine = "chipolux is signed in";
+    state.botLine = "Playing Silksong (and dying a lot...)";
+
+    state.keyvals[0].key = "OS";
+    state.keyvals[0].val = QSysInfo::productVersion();
+
+    QFile f;
+    QByteArray ba;
+
+    state.keyvals[1].key = "BIOS";
+    state.keyvals[1].val = "N/A";
+    f.setFileName("/sys/class/dmi/id/bios_release");
+    if (f.exists() && f.open(QFile::ReadOnly)) {
+        ba = f.readAll();
+        f.close();
+        state.keyvals[1].val = QString::fromUtf8(ba).trimmed();
+    } else {
+    }
+
+    state.keyvals[2].key = "STEAM";
+    state.keyvals[2].val = "N/A";
+    QDir d("~/.steam/steam/package");
+    for (auto entry : d.entryList({{"*.manifest"}})) {
+        f.setFileName(entry);
+        if (f.exists() && f.open(QFile::ReadOnly)) {
+            while (true) {
+                ba = f.readLine();
+                if (ba.contains("version")) {
+                    break;
+                }
+            }
+            f.close();
+            ba = ba.trimmed().last(16);
+            ba.replace('"', ' ');
+            state.keyvals[2].val = QString::fromUtf8(ba).trimmed();
+        }
+        break;
+    }
+}
+
+void Frunk::sendSystemState()
+{
+    if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
+        m_updateTimer->stop();
+        return;
+    }
+
+    writeLine(TOPLINE_UUID, state.topLine);
+    writeLine(MIDLINE_UUID, state.midLine);
+    writeLine(BOTLINE_UUID, state.botLine);
+
+    for (auto item = state.keyvals.begin(); item != state.keyvals.end(); ++item) {
+        auto index = std::distance(state.keyvals.begin(), item);
+        if (item->key.isEmpty()) {
+            writeKeyVal(index, "", "");
+        } else {
+            writeKeyVal(index, item->key, item->val);
+        }
+    }
+
+    flushDisplay();
 }
