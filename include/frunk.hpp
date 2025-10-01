@@ -22,6 +22,9 @@ class Frunk : public QObject
         }
     }
 
+  public slots:
+    void stop();
+
   private slots:
     void onDiscoveryEnded();
     void onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error);
@@ -39,6 +42,7 @@ class Frunk : public QObject
     QLowEnergyService *m_service = nullptr;
 
     QTimer *m_reconTimer = nullptr;
+    bool m_stopping = false;
 
     void startDiscovery();
 };

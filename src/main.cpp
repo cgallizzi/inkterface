@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "frunk.hpp"
+#include "unsig.hpp"
 
 #define EXIT_SUCCESS 0
 
@@ -16,6 +17,10 @@ using namespace Qt::Literals::StringLiterals;
 int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 {
     QCoreApplication app(argc, argv);
+    UnSig unsig(&app);
+    unsig.catchSignal(SIGINT);
+    unsig.catchSignal(SIGTERM);
+
     app.setApplicationName(PROJECT_DISPLAY_NAME);
     app.setOrganizationName(ORG_NAME);
     app.setOrganizationDomain(ORG_DOMAIN);
@@ -25,8 +30,8 @@ int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 
     int exitCode = EXIT_SUCCESS;
 
-    // QTimer::singleShot(5000, &app, SLOT(quit()));
-
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &frunk, &Frunk::stop);
+    QObject::connect(&unsig, &UnSig::unixSignal, &frunk, &Frunk::stop);
     app.exec();
     return exitCode;
 }

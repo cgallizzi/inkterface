@@ -1,7 +1,9 @@
 #include "frunk.hpp"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QObject>
+#include <QSysInfo>
 #include <QUuid>
 
 #define SERVICE_UUID QUuid("95c7b479-8e84-4ce7-a121-faf74bf48c84")
@@ -28,9 +30,20 @@ Frunk::Frunk(QObject *parent)
     startDiscovery();
 }
 
+void Frunk::stop()
+{
+    m_stopping = true;
+    if (m_controller) {
+        m_controller->disconnectFromDevice();
+    }
+    if (m_discoveryAgent) {
+        m_discoveryAgent->stop();
+    }
+    QTimer::singleShot(1000, this, [&]() { QCoreApplication::quit(); });
+}
+
 void Frunk::onDiscoveryEnded()
 {
-    qDebug() << "Discovery ended!";
     bool noController =
         !m_controller || m_controller->state() == QLowEnergyController::UnconnectedState;
     QBluetoothDeviceInfo nearest;
@@ -60,7 +73,6 @@ void Frunk::onDiscoveryEnded()
         m_controller->connectToDevice();
         m_reconTimer->start();
     } else if (noController) {
-        qDebug() << "Restarting discovery!";
         startDiscovery();
     }
 }
@@ -129,7 +141,7 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     auto c = m_service->characteristic(CHARACTERISTIC_UUID);
     if (c.isValid()) {
         qDebug() << "Writing to characteristic!";
-        m_service->writeCharacteristic(c, "TEST");
+        m_service->writeCharacteristic(c, QSysInfo::machineHostName().toUtf8());
     }
 }
 
@@ -154,6 +166,8 @@ void Frunk::onReconCheck()
 
 void Frunk::startDiscovery()
 {
+    if (m_stopping)
+        return;
     m_discoveryAgent->setLowEnergyDiscoveryTimeout(15000);
     m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
 }
