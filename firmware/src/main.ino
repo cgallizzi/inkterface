@@ -1,3 +1,6 @@
+#include <iomanip>
+#include <sstream>
+
 #include <Adafruit_ThinkInk.h>
 #include <NimBLEDevice.h>
 
@@ -41,9 +44,9 @@ class ServerCallbacks : public NimBLEServerCallbacks
     }
 } SERVER_CALLBACKS;
 
-class StatusLineCallbacks : public BLECharacteristicCallbacks
+class StatusLineCallbacks : public NimBLECharacteristicCallbacks
 {
-    void onWrite(BLECharacteristic *characteristic)
+    void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
     {
         std::string value = characteristic->getValue();
         Serial.print("got new status line: ");
@@ -60,7 +63,7 @@ void setup()
     // delay(2000); // startup delay for serial recon
 
     Serial.println("setting up ble device and service");
-    NimBLEDevice::init("MANGOFRUNK-001");
+    NimBLEDevice::init("");
     NimBLEDevice::setPower(0);
     BLE_SERVER = NimBLEDevice::createServer();
     BLE_SERVER->setCallbacks(&SERVER_CALLBACKS);
@@ -72,9 +75,13 @@ void setup()
     service->start();
 
     Serial.println("starting ble advert");
+    std::stringstream name;
+    name << "MANGOFRUNK-";
+    name << std::uppercase << std::hex << std::setfill('0') << std::setw(12)
+         << NimBLEDevice::getAddress();
     BLEAdvertising *advert = NimBLEDevice::getAdvertising();
     BLEAdvertisementData ad_data{};
-    ad_data.setName("MANGOFRUNK");
+    ad_data.setName(name.str());
     ad_data.setManufacturerData("\x5d\x05MFv001");
     advert->setAdvertisementData(ad_data);
     advert->addServiceUUID(SERVICE_UUID);
@@ -92,7 +99,7 @@ void setup()
 
 void loop()
 {
-    delay(2000);
+    delay(1000);
     // Serial.print("current power: ");
     // Serial.println(NimBLEDevice::getPower());
 
