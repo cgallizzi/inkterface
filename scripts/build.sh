@@ -10,6 +10,7 @@ PLATFORM=$(uname -s | tr [:upper:] [:lower:])
 ARCH=$(uname -m | tr [:upper:] [:lower:])
 BUILD_DIR=build-$PLATFORM-$ARCH
 DIST_DIR=dist-$PLATFORM-$ARCH
+GITREV="g$(git describe --always --dirty | tr [:lower:] [:upper:])"
 BUILD_TYPE=MinSizeRel
 DEPLOY=0
 while test $# -gt 0; do
@@ -62,6 +63,6 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     mkdir -p $DIST_DIR
     mv mango-frunk-*.AppImage $DIST_DIR/.
     pushd $DIST_DIR
-    tar zcf ../mango-frunk-$PLATFORM-$ARCH-$(date +'%Y%m%d.%H%M%S').tar.gz *.AppImage
+    tar zcf ../mango-frunk-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
     popd
 fi
