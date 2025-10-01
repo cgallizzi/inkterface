@@ -30,6 +30,8 @@ Frunk::Frunk(QObject *parent)
     , m_reconTimer(new QTimer(this))
     , m_updateTimer(new QTimer(this))
 {
+    collectSystemState();
+
     m_reconTimer->setSingleShot(false);
     m_reconTimer->setInterval(2000);
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
@@ -234,25 +236,26 @@ void Frunk::collectSystemState()
 
     state.keyvals[0].key = "OS";
     state.keyvals[0].val = QSysInfo::productVersion();
+    qDebug() << "OS: " << state.keyvals[0].val;
 
     QFile f;
     QByteArray ba;
 
     state.keyvals[1].key = "BIOS";
     state.keyvals[1].val = "N/A";
-    f.setFileName("/sys/class/dmi/id/bios_release");
+    f.setFileName("/sys/class/dmi/id/bios_version");
     if (f.exists() && f.open(QFile::ReadOnly)) {
         ba = f.readAll();
         f.close();
         state.keyvals[1].val = QString::fromUtf8(ba).trimmed();
-    } else {
     }
+    qDebug() << "BIOS: " << state.keyvals[1].val;
 
     state.keyvals[2].key = "STEAM";
     state.keyvals[2].val = "N/A";
-    QDir d("~/.steam/steam/package");
+    QDir d("/home/deck/.steam/steam/package");
     for (auto entry : d.entryList({{"*.manifest"}})) {
-        f.setFileName(entry);
+        f.setFileName(d.absoluteFilePath(entry));
         if (f.exists() && f.open(QFile::ReadOnly)) {
             while (true) {
                 ba = f.readLine();
@@ -261,12 +264,13 @@ void Frunk::collectSystemState()
                 }
             }
             f.close();
-            ba = ba.trimmed().last(16);
+            ba = ba.trimmed().last(14);
             ba.replace('"', ' ');
             state.keyvals[2].val = QString::fromUtf8(ba).trimmed();
         }
         break;
     }
+    qDebug() << "STEAM: " << state.keyvals[2].val;
 }
 
 void Frunk::sendSystemState()
