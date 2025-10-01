@@ -1,6 +1,7 @@
 #include "frunk.hpp"
 
 #include <QCoreApplication>
+#include <QDataStream>
 #include <QDebug>
 #include <QObject>
 #include <QSysInfo>
@@ -10,6 +11,11 @@
 #define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
 #define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
 #define BOTLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
+#define KEYVAL_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871903"}
+#define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
+#define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
+
+#define RSSI_LIMIT -48
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -63,7 +69,7 @@ void Frunk::onDiscoveryEnded()
         }
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
     }
-    if (noController && nearest.isValid()) {
+    if (noController && nearest.isValid() && nearest.rssi() > RSSI_LIMIT) {
         qDebug() << "Connecting to " << nearest.name();
         m_controller = QLowEnergyController::createCentral(nearest, this);
         connect(m_controller, &QLowEnergyController::stateChanged, this,
@@ -142,22 +148,41 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     }
     qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
 
-    auto c = m_service->characteristic(TOPLINE_UUID);
-    if (c.isValid()) {
-        qDebug() << "Writing topline";
-        m_service->writeCharacteristic(c, QSysInfo::machineHostName().toUtf8());
-    }
+    writeLine(TOPLINE_UUID, QSysInfo::machineHostName().toStdString());
+    writeLine(MIDLINE_UUID, "chipolux is signed in");
+    writeLine(BOTLINE_UUID, "Playing Silksong (and dying a lot...)");
+    writeKeyVal(0, "OS", QSysInfo::productVersion().toStdString());
+    flushDisplay();
+}
 
-    c = m_service->characteristic(MIDLINE_UUID);
+void Frunk::writeLine(const QUuid &uuid, const std::string &value)
+{
+    auto c = m_service->characteristic(uuid);
     if (c.isValid()) {
-        qDebug() << "Writing midline";
-        m_service->writeCharacteristic(c, "chipolux is signed in");
+        m_service->writeCharacteristic(c, value.substr(0, 42).c_str());
     }
+}
 
-    c = m_service->characteristic(BOTLINE_UUID);
+void Frunk::writeKeyVal(const uint16_t &index, const std::string &key, const std::string &value)
+{
+    auto c = m_service->characteristic(KEYVAL_UUID);
     if (c.isValid()) {
-        qDebug() << "Writing botline";
-        m_service->writeCharacteristic(c, "Playing Silksong (and dying a lot...)");
+        QByteArray ba;
+        QDataStream s(&ba, QDataStream::WriteOnly);
+        s.setByteOrder(QDataStream::ByteOrder(QSysInfo::ByteOrder));
+
+        s << index;
+        s.writeRawData(key.substr(0, 31).c_str(), 32);
+        s.writeRawData(value.substr(0, 31).c_str(), 32);
+        m_service->writeCharacteristic(c, ba);
+    }
+}
+
+void Frunk::flushDisplay()
+{
+    auto c = m_service->characteristic(FLUSH_UUID);
+    if (c.isValid()) {
+        m_service->writeCharacteristic(c, "");
     }
 }
 

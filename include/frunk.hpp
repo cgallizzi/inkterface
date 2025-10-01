@@ -45,6 +45,9 @@ class Frunk : public QObject
     bool m_stopping = false;
 
     void startDiscovery();
+    void writeLine(const QUuid &uuid, const std::string &value);
+    void writeKeyVal(const uint16_t &index, const std::string &key, const std::string &value);
+    void flushDisplay();
 };
 
 #endif /* FRUNK_HPP */
