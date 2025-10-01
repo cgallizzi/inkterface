@@ -4,12 +4,32 @@
 #include <Adafruit_ThinkInk.h>
 #include <NimBLEDevice.h>
 
-#define SERVICE_UUID "95c7b479-8e84-4ce7-a121-faf74bf48c84"
-#define CHARACTERISTIC_UUID "d6f4c07e-4a21-4c69-bd15-43a38a8719e6"
+#define SERVICE_UUID NimBLEUUID{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
+#define TOPLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
+#define MIDLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
+#define BOTLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
 
 NimBLEServer *BLE_SERVER = nullptr;
 
 ThinkInk_583_Mono_AAAMFGN MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
+
+struct RssiWindow {
+  float avg = 0;
+  float collection[5] = {0};
+  int pos = 0;
+
+  void push(const float& rssi)
+  {
+    auto size = sizeof(collection) / sizeof(collection[0]);
+    collection[pos] = rssi;
+    pos = (pos + 1) % size;
+    avg = 0;
+    for (int i = 0; i < size; ++i) {
+      avg += collection[i];
+    }
+    avg /= size;
+  }
+} RSSI_WINDOW;
 
 struct Point {
     float x;
@@ -17,7 +37,14 @@ struct Point {
 };
 typedef std::vector<Point> Points;
 
-void drawStatic(const char *status);
+
+struct State {
+  std::string topLine{"Starting up..."};
+  std::string midLine{"No User"};
+  std::string botLine{"No Activity"};
+} STATE;
+
+void drawStatic();
 
 class ServerCallbacks : public NimBLEServerCallbacks
 {
@@ -36,8 +63,12 @@ class ServerCallbacks : public NimBLEServerCallbacks
         // connected count appears to be updated after this callback is
         // triggered, so the count will be at least 1 higher than reality
         if (server->getConnectedCount() <= 1) {
+            STATE.topLine = "Waiting on connection...";
+            STATE.midLine = "No User";
+            STATE.botLine = "No Activity";
+
             MF_DISPLAY.clearBuffer();
-            drawStatic("Waiting for connection...");
+            drawStatic();
             MF_DISPLAY.display();
         }
         NimBLEDevice::startAdvertising();
@@ -48,11 +79,24 @@ class StatusLineCallbacks : public NimBLECharacteristicCallbacks
 {
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
     {
+        bool shouldDraw = false;
         std::string value = characteristic->getValue();
-        Serial.print("got new status line: ");
-        Serial.println(value.c_str());
+        auto uuid = characteristic->getUUID();
+        if (uuid == TOPLINE_UUID && STATE.topLine != value) {
+          STATE.topLine = value;
+          shouldDraw = true;
+        } else if (uuid == MIDLINE_UUID && STATE.midLine != value) {
+          STATE.midLine = value;
+          shouldDraw = true;
+        } else if (uuid == BOTLINE_UUID && STATE.botLine != value) {
+          STATE.botLine = value;
+          shouldDraw = true;
+        } else {
+          Serial.println("Got value for unknown UUID, ignoring.");
+          return;
+        }
         MF_DISPLAY.clearBuffer();
-        drawStatic(value.c_str());
+        drawStatic();
         MF_DISPLAY.display();
     }
 } STATUS_CALLBACKS;
@@ -64,14 +108,23 @@ void setup()
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
-    NimBLEDevice::setPower(0);
+    NimBLEDevice::setPower(21);
     BLE_SERVER = NimBLEDevice::createServer();
     BLE_SERVER->setCallbacks(&SERVER_CALLBACKS);
     BLEService *service = BLE_SERVER->createService(SERVICE_UUID);
-    BLECharacteristic *characteristic = service->createCharacteristic(
-        CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
-    characteristic->setValue("SOME BYTES");
+    BLECharacteristic *characteristic = nullptr;
+
+    // status line characteristics, they share callbacks
+    characteristic = service->createCharacteristic(TOPLINE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+    characteristic->setValue(STATE.topLine.c_str());
     characteristic->setCallbacks(&STATUS_CALLBACKS);
+    characteristic = service->createCharacteristic(MIDLINE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+    characteristic->setValue(STATE.midLine.c_str());
+    characteristic->setCallbacks(&STATUS_CALLBACKS);
+    characteristic = service->createCharacteristic(BOTLINE_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+    characteristic->setValue(STATE.botLine.c_str());
+    characteristic->setCallbacks(&STATUS_CALLBACKS);
+
     service->start();
 
     Serial.println("starting ble advert");
@@ -93,23 +146,21 @@ void setup()
     Serial.println("initializing display");
     MF_DISPLAY.begin(THINKINK_MONO);
     MF_DISPLAY.clearBuffer();
-    drawStatic("Starting up...");
+    drawStatic();
     MF_DISPLAY.display();
 }
 
 void loop()
 {
-    delay(1000);
-    // Serial.print("current power: ");
-    // Serial.println(NimBLEDevice::getPower());
-
-    // Serial.println("Checking on peers...");
+    delay(250);
     auto peers = BLE_SERVER->getPeerDevices();
     for (auto peer : peers) {
         auto rssi = BLE_SERVER->getClient(peer)->getRssi();
-        Serial.print("rssi: ");
-        Serial.println(rssi);
+        RSSI_WINDOW.push(rssi);
+        break;
     }
+    Serial.print("rssi: ");
+    Serial.println(RSSI_WINDOW.avg);
 }
 
 void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
@@ -124,13 +175,14 @@ void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
     MF_DISPLAY.print(text);
 }
 
-void drawLogo(const int16_t &x = 0, const int16_t &y = 0)
+void drawLogo(int16_t &x, const int16_t &y = 0)
 {
     MF_DISPLAY.fillRect(x, y, 101, 101, EPD_BLACK);
     MF_DISPLAY.fillCircle(x + 50, y + 50, 33, EPD_WHITE);
+    x += 101;
 }
 
-void drawSparkbox(const int16_t &x, const int16_t &y, const char *title, const char *value,
+void drawSparkbox(int16_t &x, const int16_t &y, const char *title, const char *value,
                   const Points &points)
 {
     const int16_t w = 209;
@@ -156,9 +208,11 @@ void drawSparkbox(const int16_t &x, const int16_t &y, const char *title, const c
         e_y = graph_y + ((p + 1)->y * graph_h * -1.0);
         MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, EPD_BLACK);
     }
+
+    x += w;
 }
 
-void drawDiscreteBox(const int16_t &x, const int16_t &y, const char *title, const char *value)
+void drawDiscreteBox(int16_t &x, const int16_t &y, const char *title, const char *value)
 {
     const int16_t w = 209;
     const int16_t h = 26;
@@ -168,44 +222,71 @@ void drawDiscreteBox(const int16_t &x, const int16_t &y, const char *title, cons
     MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
     drawText(title, x + hpad, y + vpad, 2);
     drawText(value, (x + (w - hpad)) - (12 * strlen(value)), y + vpad, 2);
+
+    x += w;
 }
 
-void drawStatic(const char *status)
+void drawStatic()
 {
+    int16_t x = 0;
+    int16_t y = 0;
+
     // fremont logo in top left corner
-    drawLogo(5, 5);
+    x = 5; y = 5;
+    drawLogo(x, y);
 
     // show connected fremont hostname/serial or connecting status
-    drawText(status, 120, 15, 3);
+    x = 120; y = 15;
+    drawText(STATE.topLine.c_str(), x, y, 3); y += 35;
+    drawText(STATE.midLine.c_str(), x, y, 2); y += 30;
+    drawText(STATE.botLine.c_str(), x, y, 2);
 
-    int16_t x = 5;
-    int16_t y = 115;
-    drawSparkbox(x, y, "Temp C", "69.23",
+    // first row of boxes with no sparklines
+    x = 5;
+    y = 115;
+    drawDiscreteBox(x, y, "OS", "20250928.1000"); x += 5;
+    drawDiscreteBox(x, y, "BIOS", "F7F0123"); x += 5;
+    drawDiscreteBox(x, y, "STEAM", "1757650573");
+
+    // second row
+    x = 5;
+    y += 26 + 5;
+    drawSparkbox(x, y, "CPU", "69.2 dC",
                  {
                      {.x = 0.0, .y = 0.0},
                      {.x = 1.0, .y = 1.0},
                  });
-    x = x + 209 + 5;
-    drawSparkbox(x, y, "FPS", "84.6",
+    x += 5;
+    drawSparkbox(x, y, "GPU", "84.6 dC",
                  {
                      {.x = 0.0, .y = 1.0},
                      {.x = 1.0, .y = 1.0},
                  });
-    x = x + 209 + 5;
-    drawDiscreteBox(x, y, "BIOS", "F7F0123");
-    y = y + 120 + 5;
-    x = 5;
-    drawDiscreteBox(x, y, "OS", "20250928.1000");
-    x = x + 209 + 5;
+    x += 5;
     drawSparkbox(x, y, "FAN", "1500 RPM",
                  {
-                     {.x = 0.0, .y = 0.0},
-                     {.x = 1.0, .y = 0.0},
+                     {.x = 0.0, .y = 1.0},
+                     {.x = 1.0, .y = 1.0},
                  });
-    x = x + 209 + 5;
-    drawSparkbox(x, y, "Watts", "999 W",
+
+    // third row
+    x = 5;
+    y += 120 + 5;
+    drawSparkbox(x, y, "CPU", "45.0%",
                  {
                      {.x = 0.0, .y = 0.0},
+                     {.x = 1.0, .y = 1.0},
+                 });
+    x += 5;
+    drawSparkbox(x, y, "GPU", "98.2%",
+                 {
+                     {.x = 0.0, .y = 1.0},
+                     {.x = 1.0, .y = 1.0},
+                 });
+    x += 5;
+    drawSparkbox(x, y, "FPS", "63.2",
+                 {
+                     {.x = 0.0, .y = 1.0},
                      {.x = 1.0, .y = 1.0},
                  });
 

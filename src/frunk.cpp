@@ -7,7 +7,9 @@
 #include <QUuid>
 
 #define SERVICE_UUID QUuid("95c7b479-8e84-4ce7-a121-faf74bf48c84")
-#define CHARACTERISTIC_UUID QUuid("d6f4c07e-4a21-4c69-bd15-43a38a8719e6")
+#define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
+#define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
+#define BOTLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -138,10 +140,24 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     if (state != QLowEnergyService::RemoteServiceDiscovered) {
         return;
     }
-    auto c = m_service->characteristic(CHARACTERISTIC_UUID);
+    qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
+
+    auto c = m_service->characteristic(TOPLINE_UUID);
     if (c.isValid()) {
-        qDebug() << "Writing to characteristic!";
+        qDebug() << "Writing topline";
         m_service->writeCharacteristic(c, QSysInfo::machineHostName().toUtf8());
+    }
+
+    c = m_service->characteristic(MIDLINE_UUID);
+    if (c.isValid()) {
+        qDebug() << "Writing midline";
+        m_service->writeCharacteristic(c, "chipolux is signed in");
+    }
+
+    c = m_service->characteristic(BOTLINE_UUID);
+    if (c.isValid()) {
+        qDebug() << "Writing botline";
+        m_service->writeCharacteristic(c, "Playing Silksong (and dying a lot...)");
     }
 }
 
