@@ -2,6 +2,10 @@
 
 #include <QDebug>
 #include <QObject>
+#include <QUuid>
+
+#define SERVICE_UUID QUuid("95c7b479-8e84-4ce7-a121-faf74bf48c84")
+#define CHARACTERISTIC_UUID QUuid("d6f4c07e-4a21-4c69-bd15-43a38a8719e6")
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -49,11 +53,10 @@ void Frunk::onDiscoveryEnded()
         m_controller = QLowEnergyController::createCentral(nearest, this);
         connect(m_controller, &QLowEnergyController::stateChanged, this,
                 &Frunk::onControllerStateChanged);
-        connect(m_controller, &QLowEnergyController::serviceDiscovered, this,
-                &Frunk::onControllerSvcDiscovered);
+        connect(m_controller, &QLowEnergyController::discoveryFinished, this,
+                &Frunk::onControllerServicesDiscovered);
         connect(m_controller, &QLowEnergyController::errorOccurred, this,
                 &Frunk::onControllerError);
-        connect(m_controller, &QLowEnergyController::rssiRead, this, &Frunk::onControllerRssi);
         m_controller->connectToDevice();
         m_reconTimer->start();
     } else if (noController) {
@@ -70,11 +73,41 @@ void Frunk::onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error)
 void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state)
 {
     qDebug() << "New controller state: " << state;
+    if (state < QLowEnergyController::ConnectedState) {
+        // delete any lingering service object that was probably invalidated by
+        // a disconnect
+        if (m_service) {
+            m_service->deleteLater();
+            m_service = nullptr;
+        }
+        return;
+    }
+    m_controller->discoverServices();
 }
 
-void Frunk::onControllerSvcDiscovered(const QBluetoothUuid &service)
+void Frunk::onControllerServicesDiscovered()
 {
-    qDebug() << "Service: " << service;
+    if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
+        return;
+    }
+    auto services = m_controller->services();
+    qDebug() << "Discovered " << services.count() << " services!";
+    if (m_service) {
+        return;
+    }
+    m_service = m_controller->createServiceObject(SERVICE_UUID, this);
+    if (!m_service) {
+        qDebug() << "Failed to create service!";
+        m_controller->disconnectFromDevice();
+        return;
+    }
+    connect(m_service, &QLowEnergyService::errorOccurred, this, &Frunk::onServiceError);
+    connect(m_service, &QLowEnergyService::stateChanged, this, &Frunk::onServiceStateChanged);
+    connect(m_service, &QLowEnergyService::characteristicRead, this,
+            &Frunk::onCharacteristicChanged);
+    connect(m_service, &QLowEnergyService::characteristicChanged, this,
+            &Frunk::onCharacteristicChanged);
+    m_service->discoverDetails();
 }
 
 void Frunk::onControllerError(QLowEnergyController::Error error)
@@ -82,7 +115,28 @@ void Frunk::onControllerError(QLowEnergyController::Error error)
     qDebug() << "Controller error: " << error;
 }
 
-void Frunk::onControllerRssi(int16_t rssi) { qDebug() << "Current RSSI: " << rssi; }
+void Frunk::onServiceError(QLowEnergyService::ServiceError error)
+{
+    qDebug() << "Service error:" << error;
+}
+
+void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
+{
+    qDebug() << "New service state: " << state;
+    if (state != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
+    auto c = m_service->characteristic(CHARACTERISTIC_UUID);
+    if (c.isValid()) {
+        qDebug() << "Writing to characteristic!";
+        m_service->writeCharacteristic(c, "TEST");
+    }
+}
+
+void Frunk::onCharacteristicChanged(const QLowEnergyCharacteristic &, const QByteArray &value)
+{
+    qDebug() << "Characteristc changed: " << value;
+}
 
 void Frunk::onReconCheck()
 {
@@ -95,7 +149,7 @@ void Frunk::onReconCheck()
     if (m_controller->state() < QLowEnergyController::ConnectedState) {
         return;
     }
-    m_controller->readRssi();
+    // NOTE: ->readRssi() doesn't work on linux/bluez, let the MCU kick us
 }
 
 void Frunk::startDiscovery()

@@ -12,19 +12,32 @@ class Frunk : public QObject
 
   public:
     explicit Frunk(QObject *parent = nullptr);
+    ~Frunk()
+    {
+        if (m_controller) {
+            m_controller->disconnectFromDevice();
+        }
+        if (m_discoveryAgent) {
+            m_discoveryAgent->stop();
+        }
+    }
 
   private slots:
     void onDiscoveryEnded();
     void onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error);
     void onControllerStateChanged(QLowEnergyController::ControllerState state);
-    void onControllerSvcDiscovered(const QBluetoothUuid &service);
+    void onControllerServicesDiscovered();
     void onControllerError(QLowEnergyController::Error error);
-    void onControllerRssi(int16_t rssi);
+    void onServiceError(QLowEnergyService::ServiceError error);
+    void onServiceStateChanged(QLowEnergyService::ServiceState state);
+    void onCharacteristicChanged(const QLowEnergyCharacteristic &c, const QByteArray &value);
     void onReconCheck();
 
   private:
     QBluetoothDeviceDiscoveryAgent *m_discoveryAgent = nullptr;
     QLowEnergyController *m_controller = nullptr;
+    QLowEnergyService *m_service = nullptr;
+
     QTimer *m_reconTimer = nullptr;
 
     void startDiscovery();
