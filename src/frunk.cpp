@@ -76,10 +76,7 @@ void Frunk::onDiscoveryEnded()
         !m_controller || m_controller->state() == QLowEnergyController::UnconnectedState;
     QBluetoothDeviceInfo nearest;
     for (const auto &info : m_discoveryAgent->discoveredDevices()) {
-        if (!info.isValid()) {
-            continue;
-        }
-        if (!info.name().startsWith(u"MANGO"_s)) {
+        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"MANGO"_s)) {
             continue;
         }
         if (!nearest.isValid()) {
