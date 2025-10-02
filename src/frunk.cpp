@@ -203,18 +203,28 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
         QDataStream s(&ba, QDataStream::WriteOnly);
         s.setByteOrder(QDataStream::ByteOrder(QSysInfo::ByteOrder));
 
-	qDebug() << "index: (" << index << ")";
-        double x, y;
         s << index;
-        s << uint8_t(points.points.size() * 2);
-        for (const auto &point : points.points) {
-            // we pack these into uint16_t to ease the unpack on the esp32
-            x = 65535.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
-            y = 65535.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
-	    qDebug() << "> point (" << x << "," << y << ")";
-            s << uint16_t(x);
-            s << uint16_t(y);
+        if (qFuzzyCompare(points.xMax + 1.0, points.xMin + 1.0) ||
+            qFuzzyCompare(points.yMax + 1.0, points.yMin + 1.0)) {
+            // handle potential divide by zero errors, if line is flat, draw a flat line
+            s << uint8_t(4);
+            s << uint16_t(0);
+            s << uint16_t(65535 / 2);
+            s << uint16_t(65535);
+            s << uint16_t(65535 / 2);
+        } else {
+            // usually we just scale the x/y axis to the full range of a uint16
+            s << uint8_t(points.points.size() * 2);
+            double x, y;
+            for (const auto &point : points.points) {
+                // we pack these into uint16_t to ease the unpack on the esp32
+                x = 65535.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
+                y = 65535.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+                s << uint16_t(x);
+                s << uint16_t(y);
+            }
         }
+
         m_service->writeCharacteristic(c, ba);
     }
 }
@@ -336,16 +346,15 @@ QString Frunk::steamCurrentUser()
             }
         }
         f.close();
-	s = QString::fromUtf8(ba).trimmed();
-	s = s.sliced(s.indexOf("PersonaName") + 12).trimmed();
-	auto len = s.length();
-	s = s.mid(1, len - 2);
+        s = QString::fromUtf8(ba).trimmed();
+        s = s.sliced(s.indexOf("PersonaName") + 12).trimmed();
+        auto len = s.length();
+        s = s.mid(1, len - 2);
     }
     return s;
 }
 
-
-QString Frunk::findHwmonNode(const QString& name)
+QString Frunk::findHwmonNode(const QString &name)
 {
     static QMap<QString, QString> nodes;
     if (nodes.contains(name)) {
@@ -358,16 +367,16 @@ QString Frunk::findHwmonNode(const QString& name)
     for (auto entry : d.entryList({{"hwmon*"}})) {
         f.setFileName(d.absoluteFilePath(entry) + "/name");
         if (f.exists() && f.open(QFile::ReadOnly)) {
-	    data = QString::fromUtf8(f.readAll()).trimmed();
-	    f.close();
-	    nodes[data] = d.absoluteFilePath(entry);
-	}
+            data = QString::fromUtf8(f.readAll()).trimmed();
+            f.close();
+            nodes[data] = d.absoluteFilePath(entry);
+        }
     }
 
     return nodes.value(name);
 }
 
-double Frunk::readHwmonNode(const QString& name, const QString& field, const double& scale)
+double Frunk::readHwmonNode(const QString &name, const QString &field, const double &scale)
 {
     auto path = findHwmonNode(name);
     if (path.isEmpty()) {
@@ -379,7 +388,7 @@ double Frunk::readHwmonNode(const QString& name, const QString& field, const dou
     QFile f{path};
     if (f.exists() && f.open(QFile::ReadOnly)) {
         data = QString::fromUtf8(f.readAll()).trimmed();
-	f.close();
+        f.close();
     } else {
         return 0.0;
     }

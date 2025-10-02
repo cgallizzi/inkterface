@@ -110,7 +110,6 @@ class Frunk : public QObject
 
         void appendPoint(const uint8_t &index, const double &x, const double &y)
         {
-	    qDebug() << "adding point" << index << "(" << x << "," << y << ")";
             sparks[index].append(x, y);
             dirty = true;
         }
@@ -159,8 +158,8 @@ class Frunk : public QObject
 
     void collectSystemState();
     QString steamCurrentUser();
-    QString findHwmonNode(const QString& name);
-    double readHwmonNode(const QString& name, const QString& field, const double& scale = 1000.0);
+    QString findHwmonNode(const QString &name);
+    double readHwmonNode(const QString &name, const QString &field, const double &scale = 1000.0);
     void sendSystemState();
 };
 
