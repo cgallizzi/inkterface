@@ -203,13 +203,15 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
         QDataStream s(&ba, QDataStream::WriteOnly);
         s.setByteOrder(QDataStream::ByteOrder(QSysInfo::ByteOrder));
 
-        float x, y;
+	qDebug() << "index: (" << index << ")";
+        double x, y;
         s << index;
         s << uint8_t(points.points.size() * 2);
         for (const auto &point : points.points) {
             // we pack these into uint16_t to ease the unpack on the esp32
-            x = 65535 * ((point.x - points.xMin) / (points.xMax - points.xMin));
-            y = 65535 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+            x = 65535.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
+            y = 65535.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+	    qDebug() << "> point (" << x << "," << y << ")";
             s << uint16_t(x);
             s << uint16_t(y);
         }
@@ -304,12 +306,62 @@ void Frunk::collectSystemState()
     state.setKeyVal(2, "STEAM", val);
     qDebug() << "STEAM: " << val;
 
-    static float x = 0;
-    static float y = 0;
-    state.setKeyVal(3, "XY", "VAR");
+    double x = NOW_MS();
+    double y = 0;
+
+    y = readHwmonNode("acpitz", "temp1_input");
+    state.setKeyVal(3, "CPU", u"%1 dC"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(0, x, y);
-    x += 10.5;
-    y += 5.25;
+
+    y = readHwmonNode("amdgpu", "temp2_input");
+    state.setKeyVal(4, "GPU", u"%1 dC"_s.arg(QString::number(y, 'f', 0)));
+    state.appendPoint(1, x, y);
+
+    y = readHwmonNode("steamdeck_hwmon", "fan1_input", 1.0);
+    state.setKeyVal(5, "FAN", u"%1 RPM"_s.arg(QString::number(y, 'f', 0)));
+    state.appendPoint(2, x, y);
+}
+
+QString Frunk::findHwmonNode(const QString& name)
+{
+    static QMap<QString, QString> nodes;
+    if (nodes.contains(name)) {
+        return nodes[name];
+    }
+
+    QFile f;
+    QString data;
+    QDir d{"/sys/class/hwmon"};
+    for (auto entry : d.entryList({{"hwmon*"}})) {
+        f.setFileName(d.absoluteFilePath(entry) + "/name");
+        if (f.exists() && f.open(QFile::ReadOnly)) {
+	    data = QString::fromUtf8(f.readAll()).trimmed();
+	    f.close();
+	    nodes[data] = d.absoluteFilePath(entry);
+	}
+    }
+
+    return nodes.value(name);
+}
+
+double Frunk::readHwmonNode(const QString& name, const QString& field, const double& scale)
+{
+    auto path = findHwmonNode(name);
+    if (path.isEmpty()) {
+        return 0.0;
+    }
+    path += "/" + field;
+
+    QString data;
+    QFile f{path};
+    if (f.exists() && f.open(QFile::ReadOnly)) {
+        data = QString::fromUtf8(f.readAll()).trimmed();
+	f.close();
+    } else {
+        return 0.0;
+    }
+
+    return data.toDouble() / scale;
 }
 
 void Frunk::sendSystemState()

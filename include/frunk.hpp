@@ -28,15 +28,15 @@ class Frunk : public QObject
     }
 
     struct Point {
-        float x;
-        float y;
+        double x;
+        double y;
 
         Point()
             : x(0)
             , y(0)
         {
         }
-        Point(float _x, float _y)
+        Point(double _x, double _y)
             : x(_x)
             , y(_y)
         {
@@ -46,21 +46,21 @@ class Frunk : public QObject
     struct Points {
         std::deque<Point> points;
         size_t size;
-        float xMax;
-        float xMin;
-        float yMax;
-        float yMin;
+        double xMax;
+        double xMin;
+        double yMax;
+        double yMin;
 
         Points()
             : size(10)
-            , xMax(std::numeric_limits<float>::min())
-            , xMin(std::numeric_limits<float>::max())
-            , yMax(std::numeric_limits<float>::min())
-            , yMin(std::numeric_limits<float>::max())
+            , xMax(std::numeric_limits<double>::min())
+            , xMin(std::numeric_limits<double>::max())
+            , yMax(std::numeric_limits<double>::min())
+            , yMin(std::numeric_limits<double>::max())
         {
         }
 
-        void append(const float &x, const float &y)
+        void append(const double &x, const double &y)
         {
             points.emplace_back(x, y);
             while (points.size() > size) {
@@ -68,10 +68,10 @@ class Frunk : public QObject
             }
             // slow, recalc max/min, but we will only ever keep ~10 elements
             // so no big impact
-            xMax = std::numeric_limits<float>::min();
-            xMin = std::numeric_limits<float>::max();
-            yMax = std::numeric_limits<float>::min();
-            yMin = std::numeric_limits<float>::max();
+            xMax = std::numeric_limits<double>::min();
+            xMin = std::numeric_limits<double>::max();
+            yMax = std::numeric_limits<double>::min();
+            yMin = std::numeric_limits<double>::max();
             for (const auto &point : points) {
                 xMax = std::max(xMax, point.x);
                 xMin = std::min(xMin, point.x);
@@ -108,8 +108,9 @@ class Frunk : public QObject
             }
         }
 
-        void appendPoint(const uint8_t &index, const float &x, const float &y)
+        void appendPoint(const uint8_t &index, const double &x, const double &y)
         {
+	    qDebug() << "adding point" << index << "(" << x << "," << y << ")";
             sparks[index].append(x, y);
             dirty = true;
         }
@@ -157,6 +158,8 @@ class Frunk : public QObject
     void flushDisplay();
 
     void collectSystemState();
+    QString findHwmonNode(const QString& name);
+    double readHwmonNode(const QString& name, const QString& field, const double& scale = 1000.0);
     void sendSystemState();
 };
 
