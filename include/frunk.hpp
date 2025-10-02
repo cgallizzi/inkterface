@@ -1,6 +1,11 @@
 #ifndef FRUNK_HPP
 #define FRUNK_HPP
 
+#include <algorithm>
+#include <deque>
+#include <limits>
+#include <vector>
+
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QLowEnergyController>
 #include <QObject>
@@ -22,6 +27,60 @@ class Frunk : public QObject
         }
     }
 
+    struct Point {
+        float x;
+        float y;
+
+        Point()
+            : x(0)
+            , y(0)
+        {
+        }
+        Point(float _x, float _y)
+            : x(_x)
+            , y(_y)
+        {
+        }
+    };
+
+    struct Points {
+        std::deque<Point> points;
+        size_t size;
+        float xMax;
+        float xMin;
+        float yMax;
+        float yMin;
+
+        Points()
+            : size(10)
+            , xMax(std::numeric_limits<float>::min())
+            , xMin(std::numeric_limits<float>::max())
+            , yMax(std::numeric_limits<float>::min())
+            , yMin(std::numeric_limits<float>::max())
+        {
+        }
+
+        void append(const float &x, const float &y)
+        {
+            points.emplace_back(x, y);
+            while (points.size() > size) {
+                points.pop_front();
+            }
+            // slow, recalc max/min, but we will only ever keep ~10 elements
+            // so no big impact
+            xMax = std::numeric_limits<float>::min();
+            xMin = std::numeric_limits<float>::max();
+            yMax = std::numeric_limits<float>::min();
+            yMin = std::numeric_limits<float>::max();
+            for (const auto &point : points) {
+                xMax = std::max(xMax, point.x);
+                xMin = std::min(xMin, point.x);
+                yMax = std::max(yMax, point.y);
+                yMin = std::min(yMin, point.y);
+            }
+        }
+    };
+
     struct KeyVal {
         QString key;
         QString val;
@@ -29,14 +88,35 @@ class Frunk : public QObject
     typedef std::vector<KeyVal> KeyVals;
 
     struct SystemState {
+        bool dirty = false;
         QString topLine;
         QString midLine;
         QString botLine;
 
         KeyVals keyvals{9};
+        std::vector<Points> sparks{6};
+
+        void setKeyVal(const uint8_t &index, const QString &key, const QString &val)
+        {
+            if (keyvals[index].key != key) {
+                keyvals[index].key = key;
+                dirty = true;
+            }
+            if (keyvals[index].val != val) {
+                keyvals[index].val = val;
+                dirty = true;
+            }
+        }
+
+        void appendPoint(const uint8_t &index, const float &x, const float &y)
+        {
+            sparks[index].append(x, y);
+            dirty = true;
+        }
 
         void reset()
         {
+            dirty = false;
             topLine = "";
             midLine = "";
             botLine = "";
@@ -72,7 +152,8 @@ class Frunk : public QObject
 
     void startDiscovery();
     void writeLine(const QUuid &uuid, const QString &value);
-    void writeKeyVal(const uint16_t &index, const QString &key, const QString &value);
+    void writeKeyVal(const uint8_t &index, const QString &key, const QString &value);
+    void writePoints(const uint8_t &index, const Points &points);
     void flushDisplay();
 
     void collectSystemState();

@@ -42,12 +42,29 @@ struct RssiWindow {
 struct Point {
     float x;
     float y;
+
+    Point()
+        : x(0)
+        , y(0)
+    {
+    }
+    Point(float _x, float _y)
+        : x(_x)
+        , y(_y)
+    {
+    }
 };
 typedef std::vector<Point> Points;
 
 struct KeyVal {
     std::string key;
     std::string val;
+
+    KeyVal()
+        : key{""}
+        , val{""}
+    {
+    }
 };
 typedef std::vector<KeyVal> KeyVals;
 
@@ -57,16 +74,16 @@ struct State {
     std::string midLine{"No User"};
     std::string botLine{"No Activity"};
 
-    KeyVals keyvals{
-        {.key = "OS", .val = "--"},     {.key = "BIOS", .val = "--"},
-        {.key = "STEAM", .val = "--"},  {.key = "CPU", .val = "-- dC"},
-        {.key = "GPU", .val = "-- dC"}, {.key = "FAN", .val = "-- RPM"},
-        {.key = "CPU", .val = "--%"},   {.key = "GPU", .val = "--%"},
-        {.key = "FPS", .val = "--"},
-    };
+    KeyVals keyvals{9};
+    std::vector<Points> sparks{6};
 
     void reset()
     {
+        keyvals.clear();
+        keyvals.resize(9);
+        sparks.clear();
+        sparks.resize(6);
+
         connected = false;
         topLine = "Waiting on connection...";
         midLine = "";
@@ -140,8 +157,12 @@ class StatusLineCallbacks : public NimBLECharacteristicCallbacks
             STATE.midLine = value;
         } else if (uuid == BOTLINE_UUID && STATE.botLine != value) {
             STATE.botLine = value;
-        } else {
-            Serial.println("Got value for unknown UUID, ignoring.");
+        } else if (uuid != TOPLINE_UUID && uuid != MIDLINE_UUID && uuid != BOTLINE_UUID) {
+            Serial.print("Got value (");
+            Serial.print(value.c_str());
+            Serial.print(") for unknown UUID (");
+            Serial.print(uuid.toString().c_str());
+            Serial.println("), ignoring.");
             return;
         }
     }
@@ -150,7 +171,7 @@ class StatusLineCallbacks : public NimBLECharacteristicCallbacks
 class KeyValCallbacks : public NimBLECharacteristicCallbacks
 {
     typedef struct __attribute__((packed)) {
-        uint16_t index;
+        uint8_t index;
         char key[32];
         char val[32];
     } Msg;
@@ -172,7 +193,33 @@ class KeyValCallbacks : public NimBLECharacteristicCallbacks
 
 class VectorCallbacks : public NimBLECharacteristicCallbacks
 {
-    void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override {}
+    typedef struct __attribute__((packed)) {
+        uint8_t index;
+        uint8_t count;
+        uint16_t values[20];
+    } Msg;
+
+    void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
+    {
+        std::string value = characteristic->getValue();
+        Msg msg;
+        if (value.length() >= 2) {
+            memcpy(&msg, value.data(), sizeof(Msg));
+            Serial.print("got vector for index (");
+            Serial.print(msg.index);
+            Serial.print(") with ");
+            Serial.print(msg.count);
+            Serial.println(" values");
+            STATE.sparks[msg.index].clear();
+            for (int i = 0; i < msg.count; i += 2) {
+                STATE.sparks[msg.index].emplace_back(msg.values[i] / 65535.0,
+                                                     msg.values[i + 1] / 65535.0);
+            }
+        } else {
+            Serial.print("got bad vectors write, size: ");
+            Serial.println(value.length());
+        }
+    }
 } VECTOR_CALLBACKS;
 
 class FlushCallbacks : public NimBLECharacteristicCallbacks
@@ -185,8 +232,9 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 
 void setup()
 {
+    STATE.reset();
+
     Serial.begin(115200);
-    // delay(2000); // startup delay for serial recon
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
@@ -318,18 +366,22 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
     const int16_t graph_x = x + 5;
     const int16_t graph_y = (y + h) - 5;
 
-    MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
-    MF_DISPLAY.fillRect(x, y + title_h, w, 1, EPD_BLACK);
-    drawText(title.c_str(), x + hpad, y + vpad, 2);
-    drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
+    if (!title.empty()) {
+        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
+        MF_DISPLAY.fillRect(x, y + title_h, w, 1, EPD_BLACK);
+        drawText(title.c_str(), x + hpad, y + vpad, 2);
+        drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
 
-    int16_t s_x = 0.0, s_y = 0.0, e_x = 0.0, e_y = 0.0;
-    for (auto p = points.cbegin(); p != points.cend() - 1; ++p) {
-        s_x = graph_x + (p->x * graph_w);
-        e_x = graph_x + ((p + 1)->x * graph_w);
-        s_y = graph_y + (p->y * graph_h * -1.0);
-        e_y = graph_y + ((p + 1)->y * graph_h * -1.0);
-        MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, EPD_BLACK);
+        if (points.size() >= 2) {
+            int16_t s_x = 0.0, s_y = 0.0, e_x = 0.0, e_y = 0.0;
+            for (auto p = points.cbegin(); p != points.cend() - 1; ++p) {
+                s_x = graph_x + (p->x * graph_w);
+                e_x = graph_x + ((p + 1)->x * graph_w);
+                s_y = graph_y + (p->y * graph_h * -1.0);
+                e_y = graph_y + ((p + 1)->y * graph_h * -1.0);
+                MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, EPD_BLACK);
+            }
+        }
     }
 
     x += w;
@@ -343,9 +395,11 @@ void drawDiscreteBox(int16_t &x, const int16_t &y, const std::string &title,
     const int16_t hpad = 8;
     const int16_t vpad = 6;
 
-    MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
-    drawText(title.c_str(), x + hpad, y + vpad, 2);
-    drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
+    if (!title.empty()) {
+        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
+        drawText(title.c_str(), x + hpad, y + vpad, 2);
+        drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
+    }
 
     x += w;
 }
@@ -381,44 +435,20 @@ void drawStatic()
     // second row
     x = 5;
     y += 26 + 5;
-    drawSparkbox(x, y, STATE.keyvals[3].key, STATE.keyvals[3].val,
-                 {
-                     {.x = 0.0, .y = 0.0},
-                     {.x = 1.0, .y = 1.0},
-                 });
+    drawSparkbox(x, y, STATE.keyvals[3].key, STATE.keyvals[3].val, STATE.sparks[0]);
     x += 5;
-    drawSparkbox(x, y, STATE.keyvals[4].key, STATE.keyvals[4].val,
-                 {
-                     {.x = 0.0, .y = 1.0},
-                     {.x = 1.0, .y = 1.0},
-                 });
+    drawSparkbox(x, y, STATE.keyvals[4].key, STATE.keyvals[4].val, STATE.sparks[1]);
     x += 5;
-    drawSparkbox(x, y, STATE.keyvals[5].key, STATE.keyvals[5].val,
-                 {
-                     {.x = 0.0, .y = 1.0},
-                     {.x = 1.0, .y = 1.0},
-                 });
+    drawSparkbox(x, y, STATE.keyvals[5].key, STATE.keyvals[5].val, STATE.sparks[2]);
 
     // third row
     x = 5;
     y += 120 + 5;
-    drawSparkbox(x, y, STATE.keyvals[6].key, STATE.keyvals[6].val,
-                 {
-                     {.x = 0.0, .y = 0.0},
-                     {.x = 1.0, .y = 1.0},
-                 });
+    drawSparkbox(x, y, STATE.keyvals[6].key, STATE.keyvals[6].val, STATE.sparks[3]);
     x += 5;
-    drawSparkbox(x, y, STATE.keyvals[7].key, STATE.keyvals[7].val,
-                 {
-                     {.x = 0.0, .y = 1.0},
-                     {.x = 1.0, .y = 1.0},
-                 });
+    drawSparkbox(x, y, STATE.keyvals[7].key, STATE.keyvals[7].val, STATE.sparks[4]);
     x += 5;
-    drawSparkbox(x, y, STATE.keyvals[8].key, STATE.keyvals[8].val,
-                 {
-                     {.x = 0.0, .y = 1.0},
-                     {.x = 1.0, .y = 1.0},
-                 });
+    drawSparkbox(x, y, STATE.keyvals[8].key, STATE.keyvals[8].val, STATE.sparks[5]);
 
     // version tag
     std::stringstream tag;

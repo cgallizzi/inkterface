@@ -1,5 +1,6 @@
 #include "frunk.hpp"
 
+#include <chrono>
 #include <iterator>
 
 #include <QByteArray>
@@ -12,7 +13,7 @@
 #include <QSysInfo>
 #include <QUuid>
 
-#define SERVICE_UUID QUuid("95c7b479-8e84-4ce7-a121-faf74bf48c84")
+#define SERVICE_UUID QUuid{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
 #define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
 #define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
 #define BOTLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
@@ -23,6 +24,13 @@
 #define RSSI_LIMIT -30
 
 using namespace Qt::Literals::StringLiterals;
+
+inline int64_t NOW_MS()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
 
 Frunk::Frunk(QObject *parent)
     : QObject(parent)
@@ -37,7 +45,7 @@ Frunk::Frunk(QObject *parent)
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
 
     m_updateTimer->setSingleShot(false);
-    m_updateTimer->setInterval(15000);
+    m_updateTimer->setInterval(30000);
     connect(m_updateTimer, &QTimer::timeout, this, &Frunk::onUpdate);
 
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this,
@@ -172,7 +180,7 @@ void Frunk::writeLine(const QUuid &uuid, const QString &value)
     }
 }
 
-void Frunk::writeKeyVal(const uint16_t &index, const QString &key, const QString &value)
+void Frunk::writeKeyVal(const uint8_t &index, const QString &key, const QString &value)
 {
     auto c = m_service->characteristic(KEYVAL_UUID);
     if (c.isValid()) {
@@ -183,6 +191,28 @@ void Frunk::writeKeyVal(const uint16_t &index, const QString &key, const QString
         s << index;
         s.writeRawData(key.left(31).toStdString().c_str(), 32);
         s.writeRawData(value.left(31).toStdString().c_str(), 32);
+        m_service->writeCharacteristic(c, ba);
+    }
+}
+
+void Frunk::writePoints(const uint8_t &index, const Points &points)
+{
+    auto c = m_service->characteristic(VECTOR_UUID);
+    if (c.isValid()) {
+        QByteArray ba;
+        QDataStream s(&ba, QDataStream::WriteOnly);
+        s.setByteOrder(QDataStream::ByteOrder(QSysInfo::ByteOrder));
+
+        float x, y;
+        s << index;
+        s << uint8_t(points.points.size() * 2);
+        for (const auto &point : points.points) {
+            // we pack these into uint16_t to ease the unpack on the esp32
+            x = 65535 * ((point.x - points.xMin) / (points.xMax - points.xMin));
+            y = 65535 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+            s << uint16_t(x);
+            s << uint16_t(y);
+        }
         m_service->writeCharacteristic(c, ba);
     }
 }
@@ -230,30 +260,31 @@ void Frunk::onUpdate()
 
 void Frunk::collectSystemState()
 {
+    QString val;
+    QFile f;
+    QByteArray ba;
+    QDir d;
+
     state.topLine = QSysInfo::machineHostName();
     state.midLine = "chipolux is signed in";
     state.botLine = "Playing Silksong (and dying a lot...)";
 
-    state.keyvals[0].key = "OS";
-    state.keyvals[0].val = QSysInfo::productVersion();
-    qDebug() << "OS: " << state.keyvals[0].val;
+    val = QSysInfo::productVersion();
+    state.setKeyVal(0, "OS", val);
+    qDebug() << "OS: " << val;
 
-    QFile f;
-    QByteArray ba;
-
-    state.keyvals[1].key = "BIOS";
-    state.keyvals[1].val = "N/A";
+    val = "N/A";
     f.setFileName("/sys/class/dmi/id/bios_version");
     if (f.exists() && f.open(QFile::ReadOnly)) {
         ba = f.readAll();
         f.close();
-        state.keyvals[1].val = QString::fromUtf8(ba).trimmed();
+        val = QString::fromUtf8(ba).trimmed();
     }
-    qDebug() << "BIOS: " << state.keyvals[1].val;
+    state.setKeyVal(1, "BIOS", val);
+    qDebug() << "BIOS: " << val;
 
-    state.keyvals[2].key = "STEAM";
-    state.keyvals[2].val = "N/A";
-    QDir d("/home/deck/.steam/steam/package");
+    val = "N/A";
+    d.setPath("/home/deck/.steam/steam/package");
     for (auto entry : d.entryList({{"*.manifest"}})) {
         f.setFileName(d.absoluteFilePath(entry));
         if (f.exists() && f.open(QFile::ReadOnly)) {
@@ -266,11 +297,19 @@ void Frunk::collectSystemState()
             f.close();
             ba = ba.trimmed().last(14);
             ba.replace('"', ' ');
-            state.keyvals[2].val = QString::fromUtf8(ba).trimmed();
+            val = QString::fromUtf8(ba).trimmed();
         }
         break;
     }
-    qDebug() << "STEAM: " << state.keyvals[2].val;
+    state.setKeyVal(2, "STEAM", val);
+    qDebug() << "STEAM: " << val;
+
+    static float x = 0;
+    static float y = 0;
+    state.setKeyVal(3, "XY", "VAR");
+    state.appendPoint(0, x, y);
+    x += 10.5;
+    y += 5.25;
 }
 
 void Frunk::sendSystemState()
@@ -279,11 +318,13 @@ void Frunk::sendSystemState()
         m_updateTimer->stop();
         return;
     }
+    if (!state.dirty) {
+        return;
+    }
 
     writeLine(TOPLINE_UUID, state.topLine);
     writeLine(MIDLINE_UUID, state.midLine);
     writeLine(BOTLINE_UUID, state.botLine);
-
     for (auto item = state.keyvals.begin(); item != state.keyvals.end(); ++item) {
         auto index = std::distance(state.keyvals.begin(), item);
         if (item->key.isEmpty()) {
@@ -291,6 +332,10 @@ void Frunk::sendSystemState()
         } else {
             writeKeyVal(index, item->key, item->val);
         }
+    }
+    for (auto item = state.sparks.begin(); item != state.sparks.end(); ++item) {
+        auto index = std::distance(state.sparks.begin(), item);
+        writePoints(index, *item);
     }
 
     flushDisplay();
