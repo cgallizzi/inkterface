@@ -348,7 +348,7 @@ void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
 
 void drawLogo(int16_t &x, const int16_t &y = 0)
 {
-    MF_DISPLAY.fillRect(x, y, 101, 101, EPD_BLACK);
+    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 4, EPD_BLACK);
     MF_DISPLAY.fillCircle(x + 50, y + 50, 33, EPD_WHITE);
     x += 101;
 }
@@ -361,13 +361,14 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
     const int16_t hpad = 8;
     const int16_t vpad = 6;
     const int16_t title_h = 26;
-    const int16_t graph_h = (h - title_h) - 10;
-    const int16_t graph_w = w - 10;
-    const int16_t graph_x = x + 5;
-    const int16_t graph_y = (y + h) - 5;
+    const int16_t graph_h = (h - title_h) - 20;
+    const int16_t graph_w = w - 20;
+    const int16_t graph_x = x + 10;
+    const int16_t graph_y = (y + h) - 10;
 
     if (!title.empty()) {
         MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
+        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, EPD_BLACK);
         MF_DISPLAY.fillRect(x, y + title_h, w, 1, EPD_BLACK);
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
@@ -380,6 +381,10 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
                 s_y = graph_y + (p->y * graph_h * -1.0);
                 e_y = graph_y + ((p + 1)->y * graph_h * -1.0);
                 MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, EPD_BLACK);
+                MF_DISPLAY.drawLine(s_x, s_y - 1, e_x, e_y - 1, EPD_BLACK);
+                MF_DISPLAY.drawLine(s_x, s_y + 1, e_x, e_y + 1, EPD_BLACK);
+                MF_DISPLAY.drawLine(s_x - 1, s_y, e_x - 1, e_y, EPD_BLACK);
+                MF_DISPLAY.drawLine(s_x + 1, s_y, e_x + 1, e_y, EPD_BLACK);
             }
         }
     }
@@ -397,6 +402,7 @@ void drawDiscreteBox(int16_t &x, const int16_t &y, const std::string &title,
 
     if (!title.empty()) {
         MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
+        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, EPD_BLACK);
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
     }
