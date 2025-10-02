@@ -158,6 +158,7 @@ class Frunk : public QObject
     void flushDisplay();
 
     void collectSystemState();
+    QString steamCurrentUser();
     QString findHwmonNode(const QString& name);
     double readHwmonNode(const QString& name, const QString& field, const double& scale = 1000.0);
     void sendSystemState();

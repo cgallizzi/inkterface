@@ -458,7 +458,7 @@ void drawStatic()
 
     // version tag
     std::stringstream tag;
-    tag << "mango-frunk " << GIT_REVISION;
+    tag << "mango-frunk " << GIT_REVISION << ", @nakylew;
     x = 4;
     y = MF_DISPLAY.height() - 12;
     drawText(tag.str().c_str(), x, y);

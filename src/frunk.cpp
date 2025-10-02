@@ -267,9 +267,10 @@ void Frunk::collectSystemState()
     QByteArray ba;
     QDir d;
 
+    auto user = steamCurrentUser();
     state.topLine = QSysInfo::machineHostName();
-    state.midLine = "chipolux is signed in";
-    state.botLine = "Playing Silksong (and dying a lot...)";
+    state.midLine = user.isEmpty() ? u"no user signed in"_s : u"%1 is signed in"_s.arg(user);
+    state.botLine = "";
 
     val = QSysInfo::productVersion();
     state.setKeyVal(0, "OS", val);
@@ -321,6 +322,28 @@ void Frunk::collectSystemState()
     state.setKeyVal(5, "FAN", u"%1 RPM"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(2, x, y);
 }
+
+QString Frunk::steamCurrentUser()
+{
+    QString s;
+    QByteArray ba;
+    QFile f{"/home/deck/.steam/steam/config/loginusers.vdf"};
+    if (f.exists() && f.open(QFile::ReadOnly)) {
+        while (true) {
+            ba = f.readLine();
+            if (ba.contains("PersonaName")) {
+                break;
+            }
+        }
+        f.close();
+	s = QString::fromUtf8(ba).trimmed();
+	s = s.sliced(s.indexOf("PersonaName") + 12).trimmed();
+	auto len = s.length();
+	s = s.mid(1, len - 2);
+    }
+    return s;
+}
+
 
 QString Frunk::findHwmonNode(const QString& name)
 {
