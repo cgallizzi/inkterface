@@ -13,7 +13,7 @@
 #define VECTOR_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -70
+#define RSSI_LIMIT -40
 
 NimBLEServer *BLE_SERVER = nullptr;
 
@@ -28,6 +28,10 @@ struct RssiWindow {
 
     void push(const float &rssi)
     {
+        // ignore outliers
+        if (rssi < -90 || rssi > -5) {
+            return;
+        }
         auto size = sizeof(collection) / sizeof(collection[0]);
         collection[pos] = rssi;
         pos = (pos + 1) % size;

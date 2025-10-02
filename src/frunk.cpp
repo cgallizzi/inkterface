@@ -21,7 +21,7 @@
 #define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -38
+#define RSSI_LIMIT -35
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -260,7 +260,7 @@ void Frunk::startDiscovery()
 {
     if (m_stopping)
         return;
-    m_discoveryAgent->setLowEnergyDiscoveryTimeout(15000);
+    m_discoveryAgent->setLowEnergyDiscoveryTimeout(10000);
     m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
 }
 
