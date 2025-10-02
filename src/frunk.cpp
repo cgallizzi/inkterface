@@ -21,7 +21,7 @@
 #define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -30
+#define RSSI_LIMIT -38
 
 using namespace Qt::Literals::StringLiterals;
 
