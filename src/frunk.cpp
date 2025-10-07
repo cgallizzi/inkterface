@@ -13,6 +13,8 @@
 #include <QSysInfo>
 #include <QUuid>
 
+#include "mango.hpp"
+
 #define SERVICE_UUID QUuid{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
 #define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
 #define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
@@ -79,6 +81,7 @@ void Frunk::stop()
     if (m_discoveryAgent) {
         m_discoveryAgent->stop();
     }
+    mango::stop_logging();
     QTimer::singleShot(1000, this, [&]() { QCoreApplication::quit(); });
 }
 
@@ -267,14 +270,18 @@ void Frunk::onReconCheck()
 
 void Frunk::onAppStarted(steam::App details)
 {
+    qDebug() << "App started:" << details.appid << "," << details.name;
     state.botLine = u"Playing %1"_s.arg(details.name);
+    mango::start_logging(details.appid.toLatin1());
     collectSystemState();
     sendSystemState();
 }
 
-void Frunk::onAppStopped(steam::App)
+void Frunk::onAppStopped(steam::App details)
 {
+    qDebug() << "App stopped:" << details.appid << "," << details.name;
     state.botLine = "";
+    mango::stop_logging();
     collectSystemState();
     sendSystemState();
 }

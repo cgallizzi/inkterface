@@ -48,7 +48,7 @@ struct mangoapp_ctrl_msgid1_v1 {
 } __attribute__((packed));
 
 void stop_logging();
-void start_logging(char *name);
+void start_logging(const char *name);
 
 }; // namespace mango
 
