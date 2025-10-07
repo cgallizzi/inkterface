@@ -364,9 +364,9 @@ void Frunk::injestMangoLog(QString path)
         cpu_load += fields.at(2).toDouble();
         gpu_load += fields.at(4).toDouble();
         ++sample_count;
-        // ignore points closer than 2 seconds, we have very limited resolution
+        // ignore points that are too close together, we have limited resolution
         // on the e-ink display so it's pointless to have really high freq data
-        if ((current_elapsed - last_elapsed) < 2000) {
+        if ((current_elapsed - last_elapsed) < 500) {
             continue;
         }
         fps /= sample_count;
