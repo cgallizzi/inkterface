@@ -21,7 +21,7 @@
 #define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -45
+#define RSSI_LIMIT -80
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -35,8 +35,10 @@ inline int64_t NOW_MS()
 Frunk::Frunk(QObject *parent)
     : QObject(parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
+    , m_steam(new steam::Steam(this))
     , m_reconTimer(new QTimer(this))
     , m_updateTimer(new QTimer(this))
+    , m_sendTimer(new QTimer(this))
 {
     collectSystemState();
 
@@ -45,8 +47,14 @@ Frunk::Frunk(QObject *parent)
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
 
     m_updateTimer->setSingleShot(false);
-    m_updateTimer->setInterval(30000);
-    connect(m_updateTimer, &QTimer::timeout, this, &Frunk::onUpdate);
+    m_updateTimer->setInterval(5000);
+    connect(m_updateTimer, &QTimer::timeout, this, &Frunk::collectSystemState);
+    m_updateTimer->start();
+
+    m_sendTimer->setSingleShot(false);
+    m_sendTimer->setInterval(30000);
+    connect(m_sendTimer, &QTimer::timeout, this, &Frunk::sendSystemState);
+    m_sendTimer->start();
 
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this,
             &Frunk::onDiscoveryEnded);
@@ -56,6 +64,10 @@ Frunk::Frunk(QObject *parent)
             &Frunk::onDiscoveryError);
     qDebug() << "Starting discovery!";
     startDiscovery();
+
+    connect(m_steam, &steam::Steam::appStarted, this, &Frunk::onAppStarted);
+    connect(m_steam, &steam::Steam::appStopped, this, &Frunk::onAppStopped);
+    m_steam->watchConsoleLog(true);
 }
 
 void Frunk::stop()
@@ -165,8 +177,7 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     }
     qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
 
-    QTimer::singleShot(1000, this, &Frunk::onUpdate);
-    m_updateTimer->start();
+    QTimer::singleShot(250, this, &Frunk::sendSystemState);
 }
 
 void Frunk::writeLine(const QUuid &uuid, const QString &value)
@@ -230,7 +241,8 @@ void Frunk::flushDisplay()
 {
     auto c = m_service->characteristic(FLUSH_UUID);
     if (c.isValid()) {
-        m_service->writeCharacteristic(c, "");
+        m_service->writeCharacteristic(
+            c, QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss A").toLatin1());
     }
 }
 
@@ -253,18 +265,26 @@ void Frunk::onReconCheck()
     // NOTE: ->readRssi() doesn't work on linux/bluez, let the MCU kick us
 }
 
+void Frunk::onAppStarted(steam::App details)
+{
+    state.botLine = u"Playing %1"_s.arg(details.name);
+    collectSystemState();
+    sendSystemState();
+}
+
+void Frunk::onAppStopped(steam::App)
+{
+    state.botLine = "";
+    collectSystemState();
+    sendSystemState();
+}
+
 void Frunk::startDiscovery()
 {
     if (m_stopping)
         return;
     m_discoveryAgent->setLowEnergyDiscoveryTimeout(10000);
     m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
-}
-
-void Frunk::onUpdate()
-{
-    collectSystemState();
-    sendSystemState();
 }
 
 void Frunk::collectSystemState()
@@ -274,14 +294,12 @@ void Frunk::collectSystemState()
     QByteArray ba;
     QDir d;
 
-    auto user = steamCurrentUser();
+    auto user = m_steam->currentUser();
     state.topLine = QSysInfo::machineHostName();
-    state.midLine = user.isEmpty() ? u"no user signed in"_s : u"%1 is signed in"_s.arg(user);
-    state.botLine = "";
+    state.midLine = user.isEmpty() ? u"No user signed in."_s : u"%1 is signed in."_s.arg(user);
 
     val = QSysInfo::productVersion();
     state.setKeyVal(0, "OS", val);
-    qDebug() << "OS: " << val;
 
     val = "N/A";
     f.setFileName("/sys/class/dmi/id/bios_version");
@@ -291,7 +309,6 @@ void Frunk::collectSystemState()
         val = QString::fromUtf8(ba).trimmed();
     }
     state.setKeyVal(1, "BIOS", val);
-    qDebug() << "BIOS: " << val;
 
     val = "N/A";
     d.setPath("/home/deck/.steam/steam/package");
@@ -312,15 +329,16 @@ void Frunk::collectSystemState()
         break;
     }
     state.setKeyVal(2, "STEAM", val);
-    qDebug() << "STEAM: " << val;
 
     double x = NOW_MS();
     double y = 0;
 
-    y = readHwmonNode("acpitz", "temp1_input");
+    // cpu Tctl, seems nice and accurate
+    y = readHwmonNode("k10temp", "temp1_input");
     state.setKeyVal(3, "CPU", u"%1 dC"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(0, x, y);
 
+    // gpu junction
     y = readHwmonNode("amdgpu", "temp2_input");
     state.setKeyVal(4, "GPU", u"%1 dC"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(1, x, y);
@@ -328,27 +346,6 @@ void Frunk::collectSystemState()
     y = readHwmonNode("steamdeck_hwmon", "fan1_input", 1.0);
     state.setKeyVal(5, "FAN", u"%1 RPM"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(2, x, y);
-}
-
-QString Frunk::steamCurrentUser()
-{
-    QString s;
-    QByteArray ba;
-    QFile f{"/home/deck/.steam/steam/config/loginusers.vdf"};
-    if (f.exists() && f.open(QFile::ReadOnly)) {
-        while (true) {
-            ba = f.readLine();
-            if (ba.contains("PersonaName")) {
-                break;
-            }
-        }
-        f.close();
-        s = QString::fromUtf8(ba).trimmed();
-        s = s.sliced(s.indexOf("PersonaName") + 12).trimmed();
-        auto len = s.length();
-        s = s.mid(1, len - 2);
-    }
-    return s;
 }
 
 QString Frunk::findHwmonNode(const QString &name)

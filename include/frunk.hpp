@@ -11,6 +11,8 @@
 #include <QObject>
 #include <QTimer>
 
+#include "steam.hpp"
+
 class Frunk : public QObject
 {
     Q_OBJECT
@@ -139,15 +141,21 @@ class Frunk : public QObject
     void onCharacteristicChanged(const QLowEnergyCharacteristic &c, const QByteArray &value);
     void onReconCheck();
 
-    void onUpdate();
+    void onAppStarted(steam::App details);
+    void onAppStopped(steam::App details);
+
+    void collectSystemState();
+    void sendSystemState();
 
   private:
     QBluetoothDeviceDiscoveryAgent *m_discoveryAgent = nullptr;
     QLowEnergyController *m_controller = nullptr;
     QLowEnergyService *m_service = nullptr;
+    steam::Steam *m_steam = nullptr;
 
     QTimer *m_reconTimer = nullptr;
     QTimer *m_updateTimer = nullptr;
+    QTimer *m_sendTimer = nullptr;
     bool m_stopping = false;
 
     void startDiscovery();
@@ -156,11 +164,8 @@ class Frunk : public QObject
     void writePoints(const uint8_t &index, const Points &points);
     void flushDisplay();
 
-    void collectSystemState();
-    QString steamCurrentUser();
     QString findHwmonNode(const QString &name);
     double readHwmonNode(const QString &name, const QString &field, const double &scale = 1000.0);
-    void sendSystemState();
 };
 
 #endif /* FRUNK_HPP */
