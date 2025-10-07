@@ -5,9 +5,11 @@
 #include <QDebug>
 #include <QLoggingCategory>
 #include <QTimer>
+#include <thread>
 
 #include "config.h"
 #include "frunk.hpp"
+#include "mango.hpp"
 #include "unsig.hpp"
 
 #define EXIT_SUCCESS 0
@@ -16,6 +18,10 @@ using namespace Qt::Literals::StringLiterals;
 
 int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 {
+#if defined(Q_OS_LINUX)
+    std::thread(msg_read_thread).detach();
+#endif
+
     QCoreApplication app(argc, argv);
     UnSig unsig(&app);
     unsig.catchSignal(SIGINT);
@@ -32,7 +38,7 @@ int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &frunk, &Frunk::stop);
     QObject::connect(&unsig, &UnSig::unixSignal, &frunk, &Frunk::stop);
-    app.exec();
+    exitCode = app.exec();
     return exitCode;
 }
 
