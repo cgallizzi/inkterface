@@ -98,6 +98,8 @@ class Frunk : public QObject
         KeyVals keyvals{9};
         std::vector<Points> sparks{6};
 
+        steam::App app;
+
         void setKeyVal(const uint8_t &index, const QString &key, const QString &val)
         {
             if (keyvals[index].key != key) {
@@ -166,6 +168,8 @@ class Frunk : public QObject
 
     QString findHwmonNode(const QString &name);
     double readHwmonNode(const QString &name, const QString &field, const double &scale = 1000.0);
+    void injestMangoLog(QString path);
+    void injestMangoLogs();
 };
 
 #endif /* FRUNK_HPP */

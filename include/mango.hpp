@@ -49,6 +49,7 @@ struct mangoapp_ctrl_msgid1_v1 {
 
 void stop_logging();
 void start_logging(const char *name);
+void set_display(bool enabled);
 
 }; // namespace mango
 

@@ -1,5 +1,6 @@
 #include "frunk.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <iterator>
 
@@ -24,6 +25,8 @@
 #define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
 #define RSSI_LIMIT -80
+#define COLLECT_INTERVAL 5000
+#define SEND_INTERVAL 30000
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -49,12 +52,12 @@ Frunk::Frunk(QObject *parent)
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
 
     m_updateTimer->setSingleShot(false);
-    m_updateTimer->setInterval(5000);
+    m_updateTimer->setInterval(COLLECT_INTERVAL);
     connect(m_updateTimer, &QTimer::timeout, this, &Frunk::collectSystemState);
     m_updateTimer->start();
 
     m_sendTimer->setSingleShot(false);
-    m_sendTimer->setInterval(30000);
+    m_sendTimer->setInterval(SEND_INTERVAL);
     connect(m_sendTimer, &QTimer::timeout, this, &Frunk::sendSystemState);
     m_sendTimer->start();
 
@@ -81,7 +84,7 @@ void Frunk::stop()
     if (m_discoveryAgent) {
         m_discoveryAgent->stop();
     }
-    mango::stop_logging();
+    mango::stop_logging(); // no harm in making sure we've stopped the logging session
     QTimer::singleShot(1000, this, [&]() { QCoreApplication::quit(); });
 }
 
@@ -180,7 +183,7 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     }
     qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
 
-    QTimer::singleShot(250, this, &Frunk::sendSystemState);
+    m_sendTimer->start(250);
 }
 
 void Frunk::writeLine(const QUuid &uuid, const QString &value)
@@ -271,19 +274,24 @@ void Frunk::onReconCheck()
 void Frunk::onAppStarted(steam::App details)
 {
     qDebug() << "App started:" << details.appid << "," << details.name;
-    state.botLine = u"Playing %1"_s.arg(details.name);
-    mango::start_logging(details.appid.toLatin1());
+    state.app = details;
+    state.dirty = true;
     collectSystemState();
-    sendSystemState();
+    m_sendTimer->start(250);
 }
 
 void Frunk::onAppStopped(steam::App details)
 {
     qDebug() << "App stopped:" << details.appid << "," << details.name;
-    state.botLine = "";
-    mango::stop_logging();
+    state.app.appid.clear();
+    state.app.name.clear();
+    state.setKeyVal(6, "", "");
+    state.setKeyVal(7, "", "");
+    state.setKeyVal(8, "", "");
+    state.dirty = true;
+    mango::stop_logging(); // no harm in making sure we've stopped the logging session
     collectSystemState();
-    sendSystemState();
+    m_sendTimer->start(250);
 }
 
 void Frunk::startDiscovery()
@@ -292,6 +300,72 @@ void Frunk::startDiscovery()
         return;
     m_discoveryAgent->setLowEnergyDiscoveryTimeout(10000);
     m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
+}
+
+void Frunk::injestMangoLogs()
+{
+    auto d = QDir::home();
+    auto entries = d.entryList({{"mangoapp_*.csv"}});
+    std::sort(entries.begin(), entries.end());
+    for (auto entry : entries) {
+        // ignore the summary logs, we are generating time series data
+        if (!entry.contains("_summary.csv")) {
+            injestMangoLog(d.absoluteFilePath(entry));
+        }
+        d.remove(entry);
+    }
+}
+
+void Frunk::injestMangoLog(QString path)
+{
+    QFile f{path};
+    if (!f.open(QFile::ReadOnly)) {
+        qWarning() << "failed to read mango log:" << path;
+        return;
+    }
+    bool in_data = false;
+    int64_t last_elapsed = 0, current_elapsed = 0;
+    double fps = 0, cpu_load = 0, gpu_load = 0;
+    int sample_count = 0;
+    QByteArray line;
+    QList<QByteArray> fields;
+    while (!f.atEnd()) {
+        line = f.readLine().trimmed();
+        // skip lines until we see the desired header
+        if (!in_data && line.startsWith("fps,frametime,cpu_load,")) {
+            in_data = true;
+            continue;
+        } else if (!in_data) {
+            continue;
+        }
+        // this is a very simple csv, all numeric fields, no risk of stray commas
+        fields = line.split(',');
+        current_elapsed = fields.last().toLongLong() / 1000 / 1000; // to ms
+        fps += fields.at(0).toDouble();
+        cpu_load += fields.at(2).toDouble();
+        gpu_load += fields.at(4).toDouble();
+        ++sample_count;
+        // ignore points closer than 2 seconds, we have very limited resolution
+        // on the e-ink display so it's pointless to have really high freq data
+        if ((current_elapsed - last_elapsed) < 2000) {
+            continue;
+        }
+        fps /= sample_count;
+        cpu_load /= sample_count;
+        gpu_load /= sample_count;
+        state.setKeyVal(6, "CPU", u"%1%"_s.arg(QString::number(cpu_load, 'f', 1)));
+        state.appendPoint(3, current_elapsed, cpu_load);
+        state.setKeyVal(7, "GPU", u"%1%"_s.arg(QString::number(gpu_load, 'f', 1)));
+        state.appendPoint(4, current_elapsed, gpu_load);
+        state.setKeyVal(8, "FPS", u"%1"_s.arg(QString::number(fps, 'f', 1)));
+        state.appendPoint(5, current_elapsed, fps);
+        last_elapsed = current_elapsed;
+        fps = 0;
+        cpu_load = 0;
+        gpu_load = 0;
+        sample_count = 0;
+    }
+    f.close();
 }
 
 void Frunk::collectSystemState()
@@ -304,6 +378,19 @@ void Frunk::collectSystemState()
     auto user = m_steam->currentUser();
     state.topLine = QSysInfo::machineHostName();
     state.midLine = user.isEmpty() ? u"No user signed in."_s : u"%1 is signed in."_s.arg(user);
+    if (!state.app.appid.isEmpty()) {
+        state.botLine = u"Playing %1"_s.arg(state.app.name);
+        // we stop the display to avoid the huge "logging ended" banner, and we
+        // stop logging because mangohud will fill up memory with some buffers
+        // used for generating the summary output if we don't
+        mango::set_display(false);
+        mango::stop_logging();
+        injestMangoLogs();
+        mango::start_logging(state.app.appid.toLatin1());
+        mango::set_display(true);
+    } else {
+        state.botLine = "";
+    }
 
     val = QSysInfo::productVersion();
     state.setKeyVal(0, "OS", val);
@@ -342,12 +429,12 @@ void Frunk::collectSystemState()
 
     // cpu Tctl, seems nice and accurate
     y = readHwmonNode("k10temp", "temp1_input");
-    state.setKeyVal(3, "CPU", u"%1 dC"_s.arg(QString::number(y, 'f', 0)));
+    state.setKeyVal(3, "CPU", u"%1 C"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(0, x, y);
 
     // gpu junction
     y = readHwmonNode("amdgpu", "temp2_input");
-    state.setKeyVal(4, "GPU", u"%1 dC"_s.arg(QString::number(y, 'f', 0)));
+    state.setKeyVal(4, "GPU", u"%1 C"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(1, x, y);
 
     y = readHwmonNode("steamdeck_hwmon", "fan1_input", 1.0);
@@ -424,4 +511,5 @@ void Frunk::sendSystemState()
     }
 
     flushDisplay();
+    m_sendTimer->setInterval(SEND_INTERVAL);
 }
