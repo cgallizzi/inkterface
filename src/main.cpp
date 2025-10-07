@@ -18,7 +18,7 @@ using namespace Qt::Literals::StringLiterals;
 
 int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 {
-#if defined(Q_OS_LINUX)
+#if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN)
     std::thread(msg_read_thread).detach();
 #endif
 
