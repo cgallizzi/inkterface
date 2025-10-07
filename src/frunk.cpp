@@ -278,7 +278,7 @@ void Frunk::onAppStarted(steam::App details)
     // TODO: add full utf-8 support to the e-ink font
     state.app.name.clear();
     for (QChar c : details.name) {
-        if (c.unicode() >= 0 && c.unicode() <= 127) {
+        if (c.unicode() <= 127) {
             state.app.name.append(c);
         }
     }
