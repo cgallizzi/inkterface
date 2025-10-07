@@ -81,6 +81,11 @@ class Frunk : public QObject
                 yMin = std::min(yMin, point.y);
             }
         }
+
+        void clear()
+        {
+            points.clear();
+        }
     };
 
     struct KeyVal {
@@ -115,6 +120,12 @@ class Frunk : public QObject
         void appendPoint(const uint8_t &index, const double &x, const double &y)
         {
             sparks[index].append(x, y);
+            dirty = true;
+        }
+
+        void clearPoints(const uint8_t &index)
+        {
+            sparks[index].clear();
             dirty = true;
         }
 

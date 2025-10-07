@@ -274,7 +274,17 @@ void Frunk::onReconCheck()
 void Frunk::onAppStarted(steam::App details)
 {
     qDebug() << "App started:" << details.appid << "," << details.name;
-    state.app = details;
+    state.app.appid = details.appid;
+    // TODO: add full utf-8 support to the e-ink font
+    state.app.name.clear();
+    for (QChar c : details.name) {
+        if (c.unicode() >= 0 && c.unicode() <= 127) {
+            state.app.name.append(c);
+        }
+    }
+    state.clearPoints(3);
+    state.clearPoints(4);
+    state.clearPoints(5);
     state.dirty = true;
     collectSystemState();
     m_sendTimer->start(250);
@@ -288,6 +298,9 @@ void Frunk::onAppStopped(steam::App details)
     state.setKeyVal(6, "", "");
     state.setKeyVal(7, "", "");
     state.setKeyVal(8, "", "");
+    state.clearPoints(3);
+    state.clearPoints(4);
+    state.clearPoints(5);
     state.dirty = true;
     mango::stop_logging(); // no harm in making sure we've stopped the logging session
     collectSystemState();
@@ -323,6 +336,12 @@ void Frunk::injestMangoLog(QString path)
         qWarning() << "failed to read mango log:" << path;
         return;
     }
+    state.clearPoints(3);
+    state.clearPoints(4);
+    state.clearPoints(5);
+    state.setKeyVal(6, "CPU", u"--%"_s);
+    state.setKeyVal(6, "GPU", u"--%"_s);
+    state.setKeyVal(6, "FPS", u"--"_s);
     bool in_data = false;
     int64_t last_elapsed = 0, current_elapsed = 0;
     double fps = 0, cpu_load = 0, gpu_load = 0;
@@ -380,14 +399,12 @@ void Frunk::collectSystemState()
     state.midLine = user.isEmpty() ? u"No user signed in."_s : u"%1 is signed in."_s.arg(user);
     if (!state.app.appid.isEmpty()) {
         state.botLine = u"Playing %1"_s.arg(state.app.name);
-        // we stop the display to avoid the huge "logging ended" banner, and we
-        // stop logging because mangohud will fill up memory with some buffers
-        // used for generating the summary output if we don't
-        mango::set_display(false);
+        // we might want to stop the display to avoid the huge "logging ended"
+        // banner, and we stop logging because mangohud will fill up memory with
+        // some buffers used for generating the summary output if left alive forever
         mango::stop_logging();
         injestMangoLogs();
         mango::start_logging(state.app.appid.toLatin1());
-        mango::set_display(true);
     } else {
         state.botLine = "";
     }
