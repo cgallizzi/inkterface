@@ -13,11 +13,49 @@
 #define VECTOR_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -40
+#define RSSI_LIMIT -80
 
 NimBLEServer *BLE_SERVER = nullptr;
+std::string BLE_NAME = "MANGOFRUNK";
 
-ThinkInk_583_Mono_AAAMFGN MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
+class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
+{
+  public:
+    CustomDisp(int16_t SID, int16_t SCLK, int16_t DC, int16_t RST, int16_t CS, int16_t SRCS,
+               int16_t MISO, int16_t BUSY = -1)
+        : ThinkInk_583_Mono_AAAMFGN(SID, SCLK, DC, RST, CS, SRCS, MISO, BUSY) {};
+
+    CustomDisp(int16_t DC, int16_t RST, int16_t CS, int16_t SRCS, int16_t BUSY = -1,
+               SPIClass *spi = &SPI)
+        : ThinkInk_583_Mono_AAAMFGN(DC, RST, CS, SRCS, BUSY, spi) {};
+
+    // experimenting with adding windowed/partial refresh
+    void partialWindow(uint16_t x = 8, uint16_t w = 198, uint16_t y = 92, uint16_t h = 110,
+                       bool pt_scan = true)
+    {
+        uint16_t hrst = x;
+        uint16_t hred = x + w;
+        uint16_t vrst = y;
+        uint16_t vred = y + h;
+        uint8_t buf[9] = {0};
+        buf[0] = (hrst & 0x300) >> 8; // bits 9:8 of HRST, top 6 bits unused
+        buf[1] = hrst & 0xf8;         // bits 7:3 of HRST, bot 3 bits must be 0
+        buf[2] = (hred & 0x300) >> 8; // bits 9:8 of HRED, top 6 bits unused
+        buf[3] = (hred & 0xf8) | 0x7; // bits 7:3 of HRED, bot 3 bits must be 1
+        buf[4] = (vrst & 0x300) >> 8; // bits 9:8 of VRST, top 6 bits unused
+        buf[5] = vrst & 0xff;         // bits 7:0 of VRST
+        buf[6] = (vred & 0x300) >> 8; // bits 9:8 of VRED, top 6 bits unused
+        buf[7] = vred & 0xff;         // bits 7:0 of VRED
+        buf[8] = pt_scan ? 1 : 0;     // bottom bit, PT_SCAN flag
+        EPD_command(0x90);
+        EPD_data(buf, sizeof(buf));
+    }
+    void partialIn() { EPD_command(0x91); }
+    void partialOut() { EPD_command(0x90); }
+};
+
+// ThinkInk_583_Mono_AAAMFGN MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
+CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 
 static unsigned long DISP_DEBOUNCE = 0;
 
@@ -29,7 +67,7 @@ struct RssiWindow {
     void push(const float &rssi)
     {
         // ignore outliers
-        if (rssi < -90 || rssi > -5) {
+        if (rssi < -90 || rssi >= 0) {
             return;
         }
         auto size = sizeof(collection) / sizeof(collection[0]);
@@ -40,6 +78,17 @@ struct RssiWindow {
             avg += collection[i];
         }
         avg /= size;
+    }
+
+    void clear()
+    {
+        collection[0] = 0;
+        collection[1] = 0;
+        collection[2] = 0;
+        collection[3] = 0;
+        collection[4] = 0;
+        pos = 0;
+        avg = -100;
     }
 } RSSI_WINDOW;
 
@@ -77,6 +126,7 @@ struct State {
     std::string topLine{"Starting up..."};
     std::string midLine{"No User"};
     std::string botLine{"No Activity"};
+    std::string hostMsg{""};
 
     KeyVals keyvals{9};
     std::vector<Points> sparks{6};
@@ -92,6 +142,7 @@ struct State {
         topLine = "Waiting on connection...";
         midLine = "";
         botLine = "";
+        hostMsg = "";
         keyvals[0].key = "OS";
         keyvals[0].val = "--";
         keyvals[1].key = "BIOS";
@@ -119,9 +170,6 @@ class ServerCallbacks : public NimBLEServerCallbacks
 {
     void onConnect(NimBLEServer *server, NimBLEConnInfo &conn) override
     {
-        // we don't want any other devices to see us once we are connected
-        // to a host
-        NimBLEDevice::stopAdvertising();
         Serial.println("got connection");
         auto rssi = server->getClient(conn)->getRssi();
         if (rssi < RSSI_LIMIT) {
@@ -129,6 +177,10 @@ class ServerCallbacks : public NimBLEServerCallbacks
             Serial.println(rssi);
             server->disconnect(conn);
         } else {
+            // we don't want any other devices to see us once we are connected
+            // to a host
+            NimBLEDevice::stopAdvertising();
+            RSSI_WINDOW.clear();
             STATE.connected = true;
         }
     }
@@ -145,6 +197,7 @@ class ServerCallbacks : public NimBLEServerCallbacks
             }
             STATE.reset();
         }
+        RSSI_WINDOW.clear();
         NimBLEDevice::startAdvertising();
     }
 } SERVER_CALLBACKS;
@@ -230,6 +283,7 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 {
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
     {
+        STATE.hostMsg = characteristic->getValue();
         DISP_DEBOUNCE = 100;
     }
 } FLUSH_CALLBACKS;
@@ -242,7 +296,7 @@ void setup()
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
-    NimBLEDevice::setPower(21);
+    NimBLEDevice::setPower(2);
     BLE_SERVER = NimBLEDevice::createServer();
     BLE_SERVER->setCallbacks(&SERVER_CALLBACKS);
     BLEService *service = BLE_SERVER->createService(SERVICE_UUID);
@@ -277,22 +331,19 @@ void setup()
     name << "MANGOFRUNK-";
     name << std::uppercase << std::hex << std::setfill('0') << std::setw(12)
          << NimBLEDevice::getAddress();
+    BLE_NAME = name.str();
     BLEAdvertising *advert = NimBLEDevice::getAdvertising();
     BLEAdvertisementData ad_data{};
-    ad_data.setName(name.str());
+    ad_data.setName(BLE_NAME);
     ad_data.setManufacturerData("\x5d\x05MFv001");
     advert->setAdvertisementData(ad_data);
     advert->addServiceUUID(SERVICE_UUID);
-    advert->enableScanResponse(false); // what does this do?
-    // advert->setMinPreferred(0x06); // huh??
-    // advert->setMinPreferred(0x12); // whuuu???
+    advert->enableScanResponse(false);
     NimBLEDevice::startAdvertising();
 
     Serial.println("initializing display");
     MF_DISPLAY.begin(THINKINK_MONO);
-    MF_DISPLAY.clearBuffer();
-    drawStatic();
-    MF_DISPLAY.display();
+    DISP_DEBOUNCE = 10;
 }
 
 void loop()
@@ -462,8 +513,12 @@ void drawStatic()
 
     // version tag
     std::stringstream tag;
-    tag << "mango-frunk " << GIT_REVISION << ", @nakylew";
+    tag << BLE_NAME << " " << GIT_REVISION;
     x = 4;
     y = MF_DISPLAY.height() - 12;
     drawText(tag.str().c_str(), x, y);
+
+    // host message if provided (usually a timestamp)
+    x = MF_DISPLAY.width() - (6 * strlen(STATE.hostMsg.c_str())) - 4;
+    drawText(STATE.hostMsg.c_str(), x, y);
 }
