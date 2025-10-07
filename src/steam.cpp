@@ -24,23 +24,27 @@ Steam::Steam(QObject *parent)
 {
 }
 
-QString Steam::currentUser()
+QString Steam::currentUser(bool account_name)
 {
+    QByteArray field = account_name ? "AccountName" : "PersonaName";
     QString s;
     QByteArray ba;
     QFile f{STEAM_PFX + "/config/loginusers.vdf"};
     if (f.exists() && f.open(QFile::ReadOnly)) {
         while (true) {
             ba = f.readLine();
-            if (ba.contains("PersonaName")) {
+            if (ba.contains(field)) {
                 break;
             }
         }
         f.close();
         s = QString::fromUtf8(ba).trimmed();
-        s = s.sliced(s.indexOf("PersonaName") + 12).trimmed();
+        s = s.sliced(s.indexOf(field) + 12).trimmed();
         auto len = s.length();
         s = s.mid(1, len - 2);
+    }
+    if (s.contains("hwtestalert")) {
+        s = currentUser(true);
     }
     return s;
 }
