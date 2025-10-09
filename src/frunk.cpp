@@ -402,8 +402,10 @@ void Frunk::collectSystemState()
         // we might want to stop the display to avoid the huge "logging ended"
         // banner, and we stop logging because mangohud will fill up memory with
         // some buffers used for generating the summary output if left alive forever
+        mango::set_display(false);
         mango::stop_logging();
         injestMangoLogs();
+        mango::set_display(true);
         mango::start_logging(state.app.appid.toLatin1());
     } else {
         state.botLine = "";
