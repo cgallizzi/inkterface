@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <iostream>
+#include <cstdlib>
 #include <thread>
 
 #include <QCommandLineParser>
@@ -31,6 +32,10 @@ static const QString SERVICE_TEMPLATE{u"[Unit]\n"_s
 
 QString getExecutablePath()
 {
+    auto appImage = std::getenv("APPIMAGE");
+    if (appImage) {
+        return {appImage};
+    }
     try {
         return {std::filesystem::canonical("/proc/self/exe").c_str()};
     } catch (const std::exception &ex) {
