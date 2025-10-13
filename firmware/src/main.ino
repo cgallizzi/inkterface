@@ -15,6 +15,9 @@
 
 #define RSSI_LIMIT -80
 
+#define SPARKBOX_HEIGHT 100
+#define SPARKBOX_WIDTH 209
+
 NimBLEServer *BLE_SERVER = nullptr;
 std::string BLE_NAME = "MANGOFRUNK";
 
@@ -411,8 +414,8 @@ void drawLogo(int16_t &x, const int16_t &y = 0)
 void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::string &value,
                   const Points &points)
 {
-    const int16_t w = 209;
-    const int16_t h = 120;
+    const int16_t w = SPARKBOX_WIDTH;
+    const int16_t h = SPARKBOX_HEIGHT;
     const int16_t hpad = 8;
     const int16_t vpad = 6;
     const int16_t title_h = 26;
@@ -504,7 +507,7 @@ void drawStatic()
 
     // third row
     x = 5;
-    y += 120 + 5;
+    y += SPARKBOX_HEIGHT + 5;
     drawSparkbox(x, y, STATE.keyvals[6].key, STATE.keyvals[6].val, STATE.sparks[3]);
     x += 5;
     drawSparkbox(x, y, STATE.keyvals[7].key, STATE.keyvals[7].val, STATE.sparks[4]);
