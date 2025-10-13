@@ -54,7 +54,9 @@ class Frunk : public QObject
         double yMin;
 
         Points()
-            : size(10)
+            : size(20)
+            // WARN: our max size is 32 points to keep within a single moderate
+            //       MTU (128 bytes), can be adjusted with a FW change if necessary
             , xMax(std::numeric_limits<double>::min())
             , xMin(std::numeric_limits<double>::max())
             , yMax(std::numeric_limits<double>::min())
@@ -82,10 +84,7 @@ class Frunk : public QObject
             }
         }
 
-        void clear()
-        {
-            points.clear();
-        }
+        void clear() { points.clear(); }
     };
 
     struct KeyVal {
