@@ -25,6 +25,7 @@
 #define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
 #define RSSI_LIMIT -80
+#define RECON_INTERVAL 2000
 #define COLLECT_INTERVAL 5000
 #define SEND_INTERVAL 30000
 
@@ -48,7 +49,7 @@ Frunk::Frunk(QObject *parent)
     collectSystemState();
 
     m_reconTimer->setSingleShot(false);
-    m_reconTimer->setInterval(2000);
+    m_reconTimer->setInterval(RECON_INTERVAL);
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
 
     m_updateTimer->setSingleShot(false);
@@ -320,9 +321,11 @@ void Frunk::injestMangoLogs()
     auto d = QDir::home();
     auto entries = d.entryList({{"mangoapp_*.csv"}});
     std::sort(entries.begin(), entries.end());
+    qDebug() << "injesting mango logs:";
     for (auto entry : entries) {
         // ignore the summary logs, we are generating time series data
         if (!entry.contains("_summary.csv")) {
+            qDebug() << "> " << entry;
             injestMangoLog(d.absoluteFilePath(entry));
         }
         d.remove(entry);
@@ -402,9 +405,11 @@ void Frunk::collectSystemState()
         // we might want to stop the display to avoid the huge "logging ended"
         // banner, and we stop logging because mangohud will fill up memory with
         // some buffers used for generating the summary output if left alive forever
+        qDebug() << "stopping ui and mango log session";
         mango::set_display(false);
         mango::stop_logging();
         injestMangoLogs();
+        qDebug() << "restarting ui and mango log session";
         mango::set_display(true);
         mango::start_logging(state.app.appid.toLatin1());
     } else {
@@ -506,7 +511,6 @@ double Frunk::readHwmonNode(const QString &name, const QString &field, const dou
 void Frunk::sendSystemState()
 {
     if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
-        m_updateTimer->stop();
         return;
     }
     if (!state.dirty) {
@@ -531,4 +535,5 @@ void Frunk::sendSystemState()
 
     flushDisplay();
     m_sendTimer->setInterval(SEND_INTERVAL);
+    m_sendTimer->start();
 }
