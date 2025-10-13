@@ -26,7 +26,8 @@
 
 #define RSSI_LIMIT -80
 #define RECON_INTERVAL 2000
-#define COLLECT_INTERVAL 5000
+#define STATS_INTERVAL 2000
+#define MANGO_INTERVAL 15000
 #define SEND_INTERVAL 30000
 
 using namespace Qt::Literals::StringLiterals;
@@ -43,7 +44,8 @@ Frunk::Frunk(QObject *parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
     , m_reconTimer(new QTimer(this))
-    , m_updateTimer(new QTimer(this))
+    , m_statsTimer(new QTimer(this))
+    , m_mangoTimer(new QTimer(this))
     , m_sendTimer(new QTimer(this))
 {
     collectSystemState();
@@ -52,10 +54,15 @@ Frunk::Frunk(QObject *parent)
     m_reconTimer->setInterval(RECON_INTERVAL);
     connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
 
-    m_updateTimer->setSingleShot(false);
-    m_updateTimer->setInterval(COLLECT_INTERVAL);
-    connect(m_updateTimer, &QTimer::timeout, this, &Frunk::collectSystemState);
-    m_updateTimer->start();
+    m_statsTimer->setSingleShot(false);
+    m_statsTimer->setInterval(STATS_INTERVAL);
+    connect(m_statsTimer, &QTimer::timeout, this, &Frunk::collectSystemState);
+    m_statsTimer->start();
+
+    m_mangoTimer->setSingleShot(false);
+    m_mangoTimer->setInterval(MANGO_INTERVAL);
+    connect(m_mangoTimer, &QTimer::timeout, this, &Frunk::collectMangoData);
+    m_mangoTimer->start();
 
     m_sendTimer->setSingleShot(false);
     m_sendTimer->setInterval(SEND_INTERVAL);
@@ -287,8 +294,9 @@ void Frunk::onAppStarted(steam::App details)
     state.clearPoints(4);
     state.clearPoints(5);
     state.dirty = true;
-    collectSystemState();
-    m_sendTimer->start(250);
+    m_statsTimer->start(100);
+    m_mangoTimer->start(100);
+    m_sendTimer->start(500);
 }
 
 void Frunk::onAppStopped(steam::App details)
@@ -304,8 +312,8 @@ void Frunk::onAppStopped(steam::App details)
     state.clearPoints(5);
     state.dirty = true;
     mango::stop_logging(); // no harm in making sure we've stopped the logging session
-    collectSystemState();
-    m_sendTimer->start(250);
+    m_statsTimer->start(100);
+    m_sendTimer->start(500);
 }
 
 void Frunk::startDiscovery()
@@ -400,20 +408,10 @@ void Frunk::collectSystemState()
     auto user = m_steam->currentUser();
     state.topLine = QSysInfo::machineHostName();
     state.midLine = user.isEmpty() ? u"No user signed in."_s : u"%1 is signed in."_s.arg(user);
-    if (!state.app.appid.isEmpty()) {
-        state.botLine = u"Playing %1"_s.arg(state.app.name);
-        // we might want to stop the display to avoid the huge "logging ended"
-        // banner, and we stop logging because mangohud will fill up memory with
-        // some buffers used for generating the summary output if left alive forever
-        qDebug() << "stopping ui and mango log session";
-        mango::set_display(false);
-        mango::stop_logging();
-        injestMangoLogs();
-        qDebug() << "restarting ui and mango log session";
-        mango::set_display(true);
-        mango::start_logging(state.app.appid.toLatin1());
-    } else {
+    if (state.app.appid.isEmpty() && !state.botLine.isEmpty()) {
         state.botLine = "";
+    } else {
+        state.botLine = u"Playing %1"_s.arg(state.app.name);
     }
 
     val = QSysInfo::productVersion();
@@ -464,6 +462,24 @@ void Frunk::collectSystemState()
     y = readHwmonNode("steamdeck_hwmon", "fan1_input", 1.0);
     state.setKeyVal(5, "FAN", u"%1 RPM"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(2, x, y);
+
+    m_statsTimer->setInterval(STATS_INTERVAL);
+    m_statsTimer->start();
+}
+
+void Frunk::collectMangoData()
+{
+    if (state.app.appid.isEmpty()) {
+        return;
+    }
+    mango::set_display(false);
+    mango::stop_logging();
+    injestMangoLogs();
+    mango::set_display(true);
+    mango::start_logging(state.app.appid.toLatin1());
+
+    m_mangoTimer->setInterval(MANGO_INTERVAL);
+    m_mangoTimer->start();
 }
 
 QString Frunk::findHwmonNode(const QString &name)

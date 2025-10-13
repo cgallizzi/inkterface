@@ -158,6 +158,7 @@ class Frunk : public QObject
     void onAppStopped(steam::App details);
 
     void collectSystemState();
+    void collectMangoData();
     void sendSystemState();
 
   private:
@@ -167,7 +168,8 @@ class Frunk : public QObject
     steam::Steam *m_steam = nullptr;
 
     QTimer *m_reconTimer = nullptr;
-    QTimer *m_updateTimer = nullptr;
+    QTimer *m_statsTimer = nullptr;
+    QTimer *m_mangoTimer = nullptr;
     QTimer *m_sendTimer = nullptr;
     bool m_stopping = false;
 
