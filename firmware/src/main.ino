@@ -256,7 +256,8 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
     typedef struct __attribute__((packed)) {
         uint8_t index;
         uint8_t count;
-        uint16_t values[20];
+        uint16_t values[32 * 2]; // 32 (x, y) pairs, 128 bytes
+        // total 130 bytes, larger than our MTU so should be big enough for max points
     } Msg;
 
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
@@ -299,7 +300,8 @@ void setup()
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
-    NimBLEDevice::setPower(2);
+    NimBLEDevice::setPower(2); // we don't need much power
+    NimBLEDevice::setMTU(128); // bump the mtu to fit a decent number of points
     BLE_SERVER = NimBLEDevice::createServer();
     BLE_SERVER->setCallbacks(&SERVER_CALLBACKS);
     BLEService *service = BLE_SERVER->createService(SERVICE_UUID);
