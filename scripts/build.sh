@@ -54,7 +54,7 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     cp resources/icon.png $APP_DIR/.
     cp resources/*.desktop $APP_DIR/usr/share/applications/.
     cp -r /lib/qt6/plugins/tls $APP_DIR/usr/lib/qt6/plugins/.
-    
+
     echo "Building appimage..."
     QTDIR=/usr/lib/qt6 ./appimagetool-*.AppImage deploy $APP_DIR/usr/share/applications/*.desktop
     VERSION=1.0 ./appimagetool-*.AppImage $APP_DIR
