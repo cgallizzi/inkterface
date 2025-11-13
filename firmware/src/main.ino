@@ -5,6 +5,8 @@
 #include <Adafruit_ThinkInk.h>
 #include <NimBLEDevice.h>
 
+#include "gaben.h"
+
 #define SERVICE_UUID NimBLEUUID{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
 #define TOPLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
 #define MIDLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
@@ -298,6 +300,14 @@ void setup()
 
     Serial.begin(115200);
 
+    Serial.println("initializing display");
+    MF_DISPLAY.begin(THINKINK_MONO);
+    MF_DISPLAY.clearBuffer();
+    MF_DISPLAY.fillScreen(EPD_WHITE);
+    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, EPD_BLACK);
+    MF_DISPLAY.display();
+    DISP_DEBOUNCE = 10;
+
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
     NimBLEDevice::setPower(2); // we don't need much power
@@ -346,9 +356,8 @@ void setup()
     advert->enableScanResponse(false);
     NimBLEDevice::startAdvertising();
 
-    Serial.println("initializing display");
-    MF_DISPLAY.begin(THINKINK_MONO);
-    DISP_DEBOUNCE = 10;
+    // just delaying here so folks can look at gabe for a bit
+    delay(2000);
 }
 
 void loop()
