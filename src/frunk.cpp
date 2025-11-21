@@ -408,9 +408,9 @@ void Frunk::collectSystemState()
     auto user = m_steam->currentUser();
     state.topLine = QSysInfo::machineHostName();
     state.midLine = user.isEmpty() ? u"No user signed in."_s : u"%1 is signed in."_s.arg(user);
-    if (state.app.appid.isEmpty() && !state.botLine.isEmpty()) {
+    if (state.app.name.isEmpty() && !state.botLine.isEmpty()) {
         state.botLine = "";
-    } else {
+    } else if (!state.app.name.isEmpty()) {
         state.botLine = u"Playing %1"_s.arg(state.app.name);
     }
 
