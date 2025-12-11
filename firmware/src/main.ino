@@ -417,8 +417,9 @@ void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
 
 void drawLogo(int16_t &x, const int16_t &y = 0)
 {
-    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 4, EPD_BLACK);
-    MF_DISPLAY.fillCircle(x + 50, y + 50, 33, EPD_WHITE);
+    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 3, EPD_BLACK);
+    MF_DISPLAY.fillCircle(x + 50, y + 50, 31, EPD_WHITE);
+    MF_DISPLAY.fillCircle(x + 50, y + 50, 23, EPD_BLACK);
     x += 101;
 }
 
