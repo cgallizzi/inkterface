@@ -26,7 +26,7 @@ next to the SteamOS host machine in case it's already connected somewhere else.
 If you have Qt installed you should be able to open the cmake project in Qt Creator,
 but for distributable linux builds it's easiest to follow this process on SteamOS.
 
-1. `distrobox create --image archlinux:base-devel --name mango-frunk`
+1. `distrobox create --pull --image archlinux:base-devel --name mango-frunk`
 2. `distrobox enter mango-frunk`
     * **NOTE:** Following commands are all ran within the distrobox!
 3. `sudo pacman -Syu base-devel wget cmake git fuse2 qt6`
