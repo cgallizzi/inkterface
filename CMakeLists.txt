@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.12.0)
-
 project(mango-frunk VERSION 1.0.0 LANGUAGES CXX)
+if (NOT DEFINED GITREV)
+    set(GITREV "gUNKNOWN")
+endif()
 set(PROJECT_DISPLAY_NAME "MangoFrunk")
 set(ORG_NAME "Valve")
 set(ORG_DOMAIN "valvesoftware.com")

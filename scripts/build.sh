@@ -6,6 +6,7 @@ if command -v nproc >/dev/null 2>&1; then
 else
     CORES=$(sysctl -n hw.ncpu)
 fi
+QT_DIR=$(dirname $(qmake6 -v | tail -1 | cut -d' ' -f6))
 PLATFORM=$(uname -s | tr [:upper:] [:lower:])
 ARCH=$(uname -m | tr [:upper:] [:lower:])
 BUILD_DIR=build-$PLATFORM-$ARCH
@@ -37,7 +38,7 @@ while test $# -gt 0; do
 done
 
 echo "Building applications..."
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B $BUILD_DIR -S .
+cmake -DGITREV=$GITREV -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B $BUILD_DIR -S .
 cmake --build $BUILD_DIR --parallel $CORES
 
 if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
@@ -53,11 +54,11 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     cp $BUILD_DIR/mango-frunk $APP_DIR/usr/bin/.
     cp resources/icon.png $APP_DIR/.
     cp resources/*.desktop $APP_DIR/usr/share/applications/.
-    cp -r /lib/qt6/plugins/tls $APP_DIR/usr/lib/qt6/plugins/.
+    cp -r $QT_DIR/plugins/tls $APP_DIR/usr/lib/qt6/plugins/.
 
     echo "Building appimage..."
-    QTDIR=/usr/lib/qt6 ./appimagetool-*.AppImage deploy $APP_DIR/usr/share/applications/*.desktop
-    VERSION=1.0 ./appimagetool-*.AppImage $APP_DIR
+    APPIMAGE_EXTRACT_AND_RUN=1 QTDIR=$QT_DIR ./appimagetool-*.AppImage deploy $APP_DIR/usr/share/applications/*.desktop
+    APPIMAGE_EXTRACT_AND_RUN=1 VERSION=$GITREV ./appimagetool-*.AppImage $APP_DIR
 
     # TODO: remove unecessary large files from appdir
 

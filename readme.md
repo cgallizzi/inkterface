@@ -33,3 +33,17 @@ but for distributable linux builds it's easiest to follow this process on SteamO
 4. `./scripts/build.sh deploy`
 
 That should produce an AppImage for you in the `./dist-linux-x86_64` folder!
+
+
+## Building Using Custom Container
+
+You can setup a better container for wider platform support on the builds by
+using the included `Containerfile`.
+
+1. `podman build -t qt69-builder -f ./Containerfile`
+2. `distrobox create --image qt69-builder --name qt69`
+3. `distrobox enter qt69`
+4. `./scripts/build.sh deploy`
+
+This container uses an older version of Ubuntu and Qt 6.9 which should let us
+build AppImages that will work on a wide range of modern systems.

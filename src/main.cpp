@@ -53,7 +53,7 @@ int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
     app.setApplicationName(PROJECT_DISPLAY_NAME);
     app.setOrganizationName(ORG_NAME);
     app.setOrganizationDomain(ORG_DOMAIN);
-    app.setApplicationVersion(PROJECT_VER);
+    app.setApplicationVersion(PROJECT_GITREV);
 
     Frunk frunk(&app);
 
@@ -103,7 +103,7 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
 int main(int argc, char *argv[])
 {
     QLoggingCategory::setFilterRules("qt.bluetooth* = false");
-    qDebug() << PROJECT_DISPLAY_NAME << "version" << PROJECT_VER;
+    qDebug() << PROJECT_DISPLAY_NAME << "version" << PROJECT_GITREV;
 
     QCommandLineParser parser;
     parser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
