@@ -52,7 +52,7 @@ void UnSig::catchSignal(int signal)
 void UnSig::_signalHandler(int signal)
 {
 #ifndef Q_OS_WIN
-    ::write(m_sockpair[0], &signal, sizeof(signal));
+    (void)!::write(m_sockpair[0], &signal, sizeof(signal));
 #else
     Q_UNUSED(signal)
 #endif
@@ -63,7 +63,7 @@ void UnSig::onSignal()
 #ifndef Q_OS_WIN
     m_notifier->setEnabled(false);
     int signal;
-    ::read(m_sockpair[1], &signal, sizeof(signal));
+    (void)!::read(m_sockpair[1], &signal, sizeof(signal));
     qDebug() << "UnSig caught signal:" << signal;
     emit unixSignal(signal);
     m_notifier->setEnabled(true);

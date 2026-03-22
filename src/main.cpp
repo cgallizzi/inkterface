@@ -83,8 +83,8 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
     dir.cd(u".config/systemd/user"_s);
     if (dir.exists(u"mango-frunk.service"_s)) {
         qDebug() << "Uninstalling old service definition...";
-        system("systemctl --user stop mango-frunk.service");
-        system("systemctl --user disable mango-frunk.service");
+        (void)!system("systemctl --user stop mango-frunk.service");
+        (void)!system("systemctl --user disable mango-frunk.service");
         dir.remove(u"mango-frunk.service"_s);
     }
     QFile f{dir.filePath(u"mango-frunk.service"_s)};
@@ -94,9 +94,9 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
     }
     f.write(svcDef.toLatin1());
     f.close();
-    system("systemctl --user daemon-reload");
-    system("systemctl --user enable mango-frunk.service");
-    system("systemctl --user start mango-frunk.service");
+    (void)!system("systemctl --user daemon-reload");
+    (void)!system("systemctl --user enable mango-frunk.service");
+    (void)!system("systemctl --user start mango-frunk.service");
     return 0;
 }
 

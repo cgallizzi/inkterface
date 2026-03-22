@@ -37,9 +37,9 @@ void stop_logging()
     send_cmd(&msg);
 #elif defined(__linux__)
     // jank, but sometimes it just doesn't seem to injest the ctrl message
-    system("mangohudctl set log_session false");
-    system("mangohudctl set log_session false");
-    system("mangohudctl set log_session false");
+    (void)!system("mangohudctl set log_session false");
+    (void)!system("mangohudctl set log_session false");
+    (void)!system("mangohudctl set log_session false");
 #endif
 }
 
@@ -59,9 +59,9 @@ void start_logging([[maybe_unused]] const char *name)
     send_cmd(&msg);
 #elif defined(__linux__)
     // jank, but sometimes it just doesn't seem to injest the ctrl message
-    system("mangohudctl set log_session true");
-    system("mangohudctl set log_session true");
-    system("mangohudctl set log_session true");
+    (void)!system("mangohudctl set log_session true");
+    (void)!system("mangohudctl set log_session true");
+    (void)!system("mangohudctl set log_session true");
 #endif
 }
 
@@ -82,9 +82,9 @@ void set_display([[maybe_unused]] bool enabled)
 #elif defined(__linux__)
     // jank, but sometimes it just doesn't seem to injest the ctrl message
     auto cmd = enabled ? "mangohudctl set no_display false" : "mangohudctl set no_display true";
-    system(cmd);
-    system(cmd);
-    system(cmd);
+    (void)!system(cmd);
+    (void)!system(cmd);
+    (void)!system(cmd);
 #endif
 }
 
