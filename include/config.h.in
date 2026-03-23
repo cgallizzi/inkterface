@@ -10,3 +10,4 @@
 #define PROJECT_GITREV "@GITREV@"
 #define ORG_NAME "@ORG_NAME@"
 #define ORG_DOMAIN "@ORG_DOMAIN@"
+#define QML_URI "@QML_URI@"

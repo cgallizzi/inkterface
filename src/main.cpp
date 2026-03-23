@@ -4,9 +4,16 @@
 #include <thread>
 
 #include <QCommandLineParser>
-#include <QCoreApplication>
+#include <QApplication>
 #include <QDebug>
 #include <QDir>
+#include <QQmlApplicationEngine>
+#include <QFont>
+#include <QFontDatabase>
+#include <QQuickWindow>
+#include <QQuickStyle>
+#include <QQmlContext>
+#include <QIcon>
 #include <QLoggingCategory>
 #include <QTimer>
 
@@ -30,6 +37,19 @@ static const QString SERVICE_TEMPLATE{u"[Unit]\n"_s
                                       u"[Install]\n"_s
                                       u"WantedBy=default.target\n"_s};
 
+bool registerFonts()
+{
+    bool success = true;
+    QString prefix = u":/%1/resources/IBM_Plex_Mono/"_s.arg(QML_URI);
+    for (const QString &f : QDir(prefix).entryList({u"*.ttf"_s})) {
+        if (QFontDatabase::addApplicationFont(prefix + f) == -1) {
+            success = false;
+            break;
+        }
+    }
+    return success;
+}
+
 QString getExecutablePath()
 {
     auto appImage = std::getenv("APPIMAGE");
@@ -43,8 +63,48 @@ QString getExecutablePath()
     }
 }
 
+int runUi(int argc, char *argv[])
+{
+    qDebug() << "Running with UI...";
+    QApplication app(argc, argv);
+    app.setApplicationName(PROJECT_DISPLAY_NAME);
+    app.setOrganizationName(ORG_NAME);
+    app.setOrganizationDomain(ORG_DOMAIN);
+    app.setApplicationVersion(PROJECT_GITREV);
+    app.setWindowIcon(QIcon(u":/%1/resources/icon.png"_s.arg(QML_URI)));
+
+    QQuickStyle::setStyle("Basic");
+    if (!registerFonts()) {
+        qWarning() << "Failed to register custom fonts!";
+    } else {
+        QFont font(u"IBM Plex Mono"_s, -1, QFont::Medium);
+        // NOTE: we use pixel size rather than point size here so our layout
+        //       elements in QML are consistent across platforms
+        font.setPixelSize(24);
+        app.setFont(font);
+    }
+
+    QQmlApplicationEngine engine(&app);
+    // QQmlContext *ctx = engine.rootContext();
+
+    const QUrl url(u"qrc:/%1/qml/main.qml"_s.arg(QML_URI));
+    QObject::connect(
+        &engine, &QQmlApplicationEngine::objectCreated, &app,
+        [url, &app](QObject *obj, const QUrl &objUrl) {
+            if (!obj && url == objUrl) {
+                qCritical("Failed to load any QML objects!");
+                app.quit();
+            }
+        },
+        Qt::QueuedConnection);
+    engine.load(url);
+
+    return app.exec();
+}
+
 int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
 {
+    qDebug() << "Running headless...";
     QCoreApplication app(argc, argv);
     UnSig unsig(&app);
     unsig.catchSignal(SIGINT);
@@ -118,6 +178,9 @@ int main(int argc, char *argv[])
     QCommandLineOption installOption{u"install"_s, u"Install as a systemd service (LINUX ONLY)."_s};
     parser.addOption(installOption);
 
+    QCommandLineOption headlessOption{u"headless"_s, u"Run without UI, used for service mode."_s};
+    parser.addOption(headlessOption);
+
     QStringList args;
     for (int i = 0; i < argc; ++i) {
         args << QString(argv[i]);
@@ -132,7 +195,9 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(installOption)) {
         return installService(argc, argv, name);
-    } else {
+    } else if (parser.isSet(headlessOption)) {
         return runHeadless(argc, argv, name);
+    } else {
+        return runUi(argc, argv);
     }
 }

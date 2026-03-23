@@ -4,6 +4,7 @@ if (NOT DEFINED GITREV)
     set(GITREV "gUNKNOWN")
 endif()
 set(PROJECT_DISPLAY_NAME "MangoFrunk")
+set(QML_URI "vqt")
 set(ORG_NAME "Valve")
 set(ORG_DOMAIN "valvesoftware.com")
 
@@ -12,8 +13,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(QT_MODULES
-    Core
     Bluetooth
+    Core
+    Gui
+    Qml
+    Quick
+    QuickControls2
+    Widgets
 )
 find_package(Qt6 COMPONENTS ${QT_MODULES} REQUIRED)
 list(TRANSFORM QT_MODULES PREPEND Qt${QT_VERSION_MAJOR}::)
@@ -22,6 +28,8 @@ set(MODULES)
 
 file(GLOB_RECURSE PROJECT_SOURCES ${PROJECT_SOURCE_DIR}/src/*.*)
 file(GLOB_RECURSE PROJECT_HEADERS ${PROJECT_SOURCE_DIR}/include/*.*)
+file(GLOB_RECURSE PROJECT_QMLFILES RELATIVE ${PROJECT_SOURCE_DIR} CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/qml/*.*)
+file(GLOB_RECURSE PROJECT_RESOURCES RELATIVE ${PROJECT_SOURCE_DIR} CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/resources/*.*)
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${PROJECT_HEADERS})
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
@@ -31,6 +39,18 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
 )
 configure_file(${PROJECT_SOURCE_DIR}/include/config.h.in ${PROJECT_SOURCE_DIR}/include/config.h)
+if (Qt6_VERSION VERSION_GREATER_EQUAL 6.8)
+    qt_policy(SET QTP0004 NEW)
+endif()
+qt_add_qml_module(${PROJECT_NAME}
+    URI ${QML_URI}
+    VERSION ${PROJECT_VER}
+    SOURCES ${PROJECT_SOURCES} ${PROJECT_HEADERS}
+    QML_FILES ${PROJECT_QMLFILES}
+    RESOURCES ${PROJECT_RESOURCES}
+    RESOURCE_PREFIX "/"
+)
+qt_import_qml_plugins(${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.valvesoftware.${PROJECT_DISPLAY_NAME}"
@@ -38,7 +58,3 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/mac/Info.plist.in"
 )
-
-# if (Qt6_VERSION VERSION_GREATER_EQUAL 6.8)
-#     qt_policy(SET QTP0004 NEW)
-# endif()
