@@ -19,7 +19,7 @@ ApplicationWindow {
     id: rootWindow
     title: `${Qt.application.displayName} (v${Qt.application.version})`
     visible: true
-    visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
+    // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
     minimumWidth: 1280
     minimumHeight: 720
     color: "#4d5845"

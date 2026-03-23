@@ -115,7 +115,7 @@ int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
     app.setOrganizationDomain(ORG_DOMAIN);
     app.setApplicationVersion(PROJECT_GITREV);
 
-    Frunk frunk(&app);
+    Frunk frunk(name, &app);
 
     int exitCode = EXIT_SUCCESS;
 

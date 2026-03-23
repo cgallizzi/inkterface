@@ -18,7 +18,7 @@ class Frunk : public QObject
     Q_OBJECT
 
   public:
-    explicit Frunk(QObject *parent = nullptr);
+    explicit Frunk(const QString& name = "", QObject *parent = nullptr);
     ~Frunk()
     {
         if (m_controller) {
@@ -165,6 +165,7 @@ class Frunk : public QObject
     QLowEnergyController *m_controller = nullptr;
     QLowEnergyService *m_service = nullptr;
     steam::Steam *m_steam = nullptr;
+    QString m_desiredName = "";
 
     QTimer *m_reconTimer = nullptr;
     QTimer *m_statsTimer = nullptr;

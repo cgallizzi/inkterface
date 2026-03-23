@@ -39,10 +39,11 @@ inline int64_t NOW_MS()
         .count();
 }
 
-Frunk::Frunk(QObject *parent)
+Frunk::Frunk(const QString& name, QObject *parent)
     : QObject(parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
+    , m_desiredName(name)
     , m_reconTimer(new QTimer(this))
     , m_statsTimer(new QTimer(this))
     , m_mangoTimer(new QTimer(this))
@@ -105,12 +106,21 @@ void Frunk::onDiscoveryEnded()
         if (!info.isValid() || info.isCached() || !info.name().startsWith(u"MANGO"_s)) {
             continue;
         }
+        qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
+        if (!m_desiredName.isEmpty())
+        {
+            if (m_desiredName == info.name()) {
+                nearest = info;
+                break;
+            } else {
+                continue;
+            }
+        }
         if (!nearest.isValid()) {
             nearest = info;
         } else if (info.rssi() < nearest.rssi()) {
             nearest = info;
         }
-        qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
     }
     if (noController && nearest.isValid() && nearest.rssi() > RSSI_LIMIT) {
         qDebug() << "Connecting to " << nearest.name();
@@ -416,6 +426,17 @@ void Frunk::collectSystemState()
 
     val = QSysInfo::productVersion();
     state.setKeyVal(0, "OS", val);
+
+    // val = "N/A"
+    // f.setFileName("/etc/os-release");
+    // if (f.exists() && f.open(QFile::ReadOnly)) {
+    //     ba = f.readAll();
+    //     f.close();
+    //     val = QString::fromUtf8(ba).trimmed();
+    //     auto idx = val.indexOf("BUILD_ID=") + 9;
+    //     val = val.mid(idx, val.indexOf("\n", idx));
+    // }
+    // state.setKeyVal(0, "OS", val);
 
     val = "N/A";
     f.setFileName("/sys/class/dmi/id/bios_version");
