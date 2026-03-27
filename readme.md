@@ -13,6 +13,15 @@ You may need to hit the reset button on the back of the panel once you have it
 next to the SteamOS host machine in case it's already connected somewhere else.
 
 
+## Design Docs
+
+Planning out the UI and frunk design is done in a Lunacy document you can find
+in the `./design` folder.
+
+Lunacy is an open source alternative to tools like Figma that can work entirely
+offline.
+
+
 ## Building Firmware
 
 1. Install [PlatformIO](https://platformio.org) for your system.
