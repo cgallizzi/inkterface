@@ -65,7 +65,10 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     echo "Packaging release..."
     mkdir -p $DIST_DIR
     mv mango-frunk-*.AppImage $DIST_DIR/.
-    pushd $DIST_DIR
-    tar zcf ../mango-frunk-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
-    popd
+    # don't create archive for wip
+    if [[ "$GITREV" != *"DIRTY"* ]]; then
+        pushd $DIST_DIR
+        tar zcf ../mango-frunk-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
+        popd
+    fi
 fi
