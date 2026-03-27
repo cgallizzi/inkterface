@@ -1,20 +1,20 @@
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
-#include <cstdlib>
 #include <thread>
 
-#include <QCommandLineParser>
 #include <QApplication>
+#include <QCommandLineParser>
 #include <QDebug>
 #include <QDir>
-#include <QQmlApplicationEngine>
 #include <QFont>
 #include <QFontDatabase>
-#include <QQuickWindow>
-#include <QQuickStyle>
-#include <QQmlContext>
 #include <QIcon>
 #include <QLoggingCategory>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickStyle>
+#include <QQuickWindow>
 #include <QTimer>
 
 #include "config.h"
@@ -133,8 +133,8 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
         qWarning() << "Can only install service on linux hosts!";
         return 1;
     }
-    auto svcDef =
-        SERVICE_TEMPLATE.arg(exePath).arg(name.isEmpty() ? u""_s : u" --name %1"_s.arg(name));
+    auto svcDef = SERVICE_TEMPLATE.arg(exePath).arg(
+        name.isEmpty() ? u" --headless"_s : u" --headless --name %1"_s.arg(name));
     auto dir = QDir::home();
     if (!dir.mkpath(u".config/systemd/user"_s)) {
         qWarning() << "Failed to create systemd user config directory!";
