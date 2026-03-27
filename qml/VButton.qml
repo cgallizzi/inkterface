@@ -42,8 +42,14 @@ VRect {
         width: parent.width
         height: parent.height
 
-        onClicked: control.clicked()
-        onPressed: control.pressed()
+        onClicked: {
+            control.forceActiveFocus()
+            control.clicked()
+        }
+        onPressed: {
+            control.forceActiveFocus()
+            control.pressed()
+        }
         onReleased: control.released()
     }
 }

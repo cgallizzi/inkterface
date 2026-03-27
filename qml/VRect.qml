@@ -2,7 +2,7 @@ import QtQuick
 
 Rectangle {
     id: control
-    color: control.bgColor
+    color: control.flipped ? control.dbgColor : control.bgColor
 
     // let users choose between normal, danger, alternate, etc.
     property int style: 0

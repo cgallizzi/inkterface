@@ -3,18 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import vqt
 
-
-/* Colors
- *  most are shades of greenish (from dark to light)
- *  btm-right dark edge = #242f1f
- *  bg/dark btn/etc = #3e4638 (dark green)
- *  light btn = #4c5844 (light green)
- *  lighter btn/left edge/alt txt = #697464 (lighter desaturated green)
- *  top light edge = #7d8576
- *
- *  there is also a text color
- *  txt = #c2b05a (yellowish, light)
- */
 ApplicationWindow {
     id: rootWindow
     title: `${Qt.application.displayName} (v${Qt.application.version})`
@@ -34,6 +22,21 @@ ApplicationWindow {
         anchors.fill: parent
 
         onClicked: focusThief.forceActiveFocus()
+    }
+
+    Flow {
+        spacing: 10
+        anchors.centerIn: parent
+
+        VBoxedReadout {
+            title: "CPU dC"
+            value: "120dC"
+        }
+
+        VSparkline {
+            title: "GPU dC"
+            value: "50dC"
+        }
     }
 
     VButton {

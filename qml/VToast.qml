@@ -6,6 +6,7 @@ VRect {
     visible: timer.running
     implicitWidth: label.implicitWidth + (4 * control.depth)
     implicitHeight: label.implicitHeight + (2 * control.depth)
+    flipped: clipboardTimer.running
 
     property alias text: label.text
     property alias duration: timer.interval
@@ -36,6 +37,13 @@ VRect {
         running: false
     }
 
+    Timer {
+        id: clipboardTimer
+        interval: 100
+        repeat: false
+        running: false
+    }
+
     VLabel {
         id: label
         wrapMode: Label.WrapAtWordBoundaryOrAnywhere
@@ -47,5 +55,27 @@ VRect {
         verticalAlignment: Label.AlignVCenter
         width: control.width
         height: control.height
+    }
+
+    TextEdit {
+        id: clipboard
+        visible: false
+    }
+
+    MouseArea {
+        enabled: timer.running
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        anchors.fill: parent
+
+        onClicked: function (event) {
+            if (event.button === Qt.RightButton) {
+                clipboardTimer.start()
+                clipboard.text = control.text
+                clipboard.selectAll()
+                clipboard.copy()
+            } else {
+                timer.stop()
+            }
+        }
     }
 }
