@@ -3,21 +3,6 @@ import QtQuick.Controls
 
 TextField {
     id: control
-    topPadding: 10
-    bottomPadding: 10
-    leftPadding: 10
-    rightPadding: 10
-    color: background.fgColor
-    selectionColor: background.hiColor
-    placeholderTextColor: background.hiColor
-    background: VRect {
-        style: control.acceptableInput ? 0 : 1
-        flipped: true
-        bgColor: dbgColor
-        implicitWidth: control.implicitWidth
-        implicitHeight: control.implicitHeight
-    }
-    opacity: control.enabled ? 1.0 : 0.5
 
     // keyboard mode for steamworks floating keyboard
     //    -1 = disabled (also disabled when steamworks is unusable)
@@ -27,12 +12,29 @@ TextField {
     //    3 = numeric, numeric keypad (doesn't seem to do anything)
     property int keyboardMode: 0
 
+    bottomPadding: 10
+    color: background.fgColor
+    leftPadding: 10
+    opacity: control.enabled ? 1.0 : 0.5
+    placeholderTextColor: background.hiColor
+    rightPadding: 10
+    selectionColor: background.hiColor
+    topPadding: 10
+
+    background: VRect {
+        bgColor: dbgColor
+        flipped: true
+        implicitHeight: control.implicitHeight
+        implicitWidth: control.implicitWidth
+        style: control.acceptableInput ? 0 : 1
+    }
+
     onActiveFocusChanged: {
         if (activeFocus) {
-            control.selectAll()
+            control.selectAll();
             if (steamworks.ready && control.keyboardMode >= 0) {
-                var pos = control.mapToGlobal(0, 0)
-                steamworks.openKeyboard(control.keyboardMode, pos.x, pos.y, control.width, control.height)
+                var pos = control.mapToGlobal(0, 0);
+                steamworks.openKeyboard(control.keyboardMode, pos.x, pos.y, control.width, control.height);
             }
         }
     }
