@@ -10,7 +10,7 @@ ApplicationWindow {
     minimumHeight: 720
     // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
     minimumWidth: 1280
-    title: `${Qt.application.displayName} (v${Qt.application.version})`
+    title: `${Qt.application.displayName} (${Qt.application.version})`
     visible: true
 
     Item {
@@ -26,41 +26,58 @@ ApplicationWindow {
         onClicked: focusThief.forceActiveFocus()
     }
 
-    Flow {
-        anchors.centerIn: parent
+    ListView {
+        height: 120
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 20
         spacing: 10
+        orientation: ListView.Horizontal
 
-        VBoxedReadout {
-            title: "CPU dC"
-            value: "120dC"
+        model: ListModel {
+            ListElement {
+                thing: "Some text"
+            }
+            ListElement {
+                thing: "Second Thing"
+            }
+            ListElement {
+                thing: "Third thing"
+            }
+            ListElement {
+                thing: "More things"
+            }
+            ListElement {
+                thing: "More things"
+            }
+            ListElement {
+                thing: "More things"
+            }
+            ListElement {
+                thing: "More things"
+            }
+            ListElement {
+                thing: "More things"
+            }
+            ListElement {
+                thing: "More things"
+            }
         }
 
-        VSparkline {
-            title: "GPU dC"
-            value: "50dC"
+        delegate: VBoxedReadout {
+            title: thing
+            value: "12.34"
         }
     }
 
-    VButton {
-        anchors.bottom: parent.bottom
+    VConfirmButton {
+        anchors.top: parent.top
         anchors.left: parent.left
         anchors.margins: 10
-        text: exitDebounce.running ? "Are you sure?" : "Exit App"
+        normalText: "Exit App"
 
-        onClicked: {
-            if (exitDebounce.running)
-                Qt.callLater(Qt.quit);
-            else
-                exitDebounce.restart();
-        }
-
-        Timer {
-            id: exitDebounce
-
-            interval: 3000
-            repeat: false
-            running: false
-        }
+        onConfirmed: Qt.callLater(Qt.quit)
     }
 
     VToast {
