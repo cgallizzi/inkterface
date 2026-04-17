@@ -6,7 +6,7 @@
 
 using namespace Qt::Literals::StringLiterals;
 
-FrunkInfo::FunkInfo(const QBluetoothDeviceInfo &info, QObject *parent)
+FrunkInfo::FrunkInfo(const QBluetoothDeviceInfo &info, QObject *parent)
     : QObject(parent)
     , m_info(info)
 {

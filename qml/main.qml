@@ -27,7 +27,7 @@ ApplicationWindow {
     }
 
     ListView {
-        height: 120
+        height: 180
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -35,39 +35,50 @@ ApplicationWindow {
         spacing: 10
         orientation: ListView.Horizontal
 
-        model: ListModel {
-            ListElement {
-                thing: "Some text"
-            }
-            ListElement {
-                thing: "Second Thing"
-            }
-            ListElement {
-                thing: "Third thing"
-            }
-            ListElement {
-                thing: "More things"
-            }
-            ListElement {
-                thing: "More things"
-            }
-            ListElement {
-                thing: "More things"
-            }
-            ListElement {
-                thing: "More things"
-            }
-            ListElement {
-                thing: "More things"
-            }
-            ListElement {
-                thing: "More things"
-            }
-        }
+        model: frunkFinder.frunks
 
-        delegate: VBoxedReadout {
-            title: thing
-            value: "12.34"
+        delegate: Rectangle {
+            color: "#111"
+            radius: 3
+            height: ListView.view.height
+            width: 190
+
+            Rectangle {
+                color: "#ddd"
+                radius: 3
+                anchors.fill: parent
+                anchors.margins: 10
+
+                Rectangle {
+                    id: logoRect
+                    color: "#111"
+                    radius: 3
+                    height: parent.height * 0.2
+                    width: height
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.margins: 3
+
+                    Rectangle {
+                        color: "#ddd"
+                        height: parent.height * 0.5
+                        width: height
+                        radius: height
+                        anchors.centerIn: parent
+                    }
+                }
+
+                Label {
+                    text: modelData.name
+                    font.pixelSize: logoRect.height * 0.5
+                    anchors.left: logoRect.right
+                    anchors.top: parent.top
+                    anchors.margins: 3
+                }
+            }
+
+            // title: modelData.name
+            // value: modelData.rssi
         }
     }
 

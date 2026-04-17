@@ -13,14 +13,14 @@ class FrunkInfo : public QObject
     Q_PROPERTY(qint16 rssi READ rssi CONSTANT)
 
   public:
-    explicit FunkInfo(const QBluetoothDeviceInfo &info, QObject *parent = nullptr);
+    explicit FrunkInfo(const QBluetoothDeviceInfo &info, QObject *parent = nullptr);
 
     QString name() { return m_info.name(); }
     qint16 rssi() { return m_info.rssi(); }
 
   private:
     QBluetoothDeviceInfo m_info;
-}
+};
 
 class FrunkFinder : public QObject
 {

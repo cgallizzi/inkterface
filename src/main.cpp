@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "frunk.hpp"
+#include "frunk-finder.hpp"
 #include "unsig.hpp"
 
 #define EXIT_SUCCESS 0
@@ -85,7 +86,10 @@ int runUi(int argc, char *argv[])
     }
 
     QQmlApplicationEngine engine(&app);
-    // QQmlContext *ctx = engine.rootContext();
+    QQmlContext *ctx = engine.rootContext();
+
+    FrunkFinder* frunkFinder = new FrunkFinder(&app);
+    ctx->setContextProperty("frunkFinder", frunkFinder);
 
     const QUrl url(u"qrc:/%1/qml/main.qml"_s.arg(QML_URI));
     QObject::connect(
