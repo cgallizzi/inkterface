@@ -21,7 +21,7 @@
 #define SPARKBOX_WIDTH 209
 
 NimBLEServer *BLE_SERVER = nullptr;
-std::string BLE_NAME = "MANGOFRUNK";
+std::string BLE_NAME = "FRUNK";
 
 class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 {
@@ -342,10 +342,10 @@ void setup()
     service->start();
 
     Serial.println("starting ble advert");
+    uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
     std::stringstream name;
-    name << "MANGOFRUNK-";
-    name << std::uppercase << std::hex << std::setfill('0') << std::setw(12)
-         << NimBLEDevice::getAddress();
+    name << "FRUNK-";
+    name << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << addr;
     BLE_NAME = name.str();
     BLEAdvertising *advert = NimBLEDevice::getAdvertising();
     BLEAdvertisementData ad_data{};

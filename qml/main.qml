@@ -26,8 +26,26 @@ ApplicationWindow {
         onClicked: focusThief.forceActiveFocus()
     }
 
+    FrunkPanel {
+        height: 390
+        width: 510
+        opacity: 0.2
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.margins: 20
+    }
+
+    VLabel {
+        text: "Nearby Devices:"
+        anchors.left: parent.left
+        anchors.bottom: frunkList.top
+        anchors.margins: 20
+        anchors.bottomMargin: 10
+    }
+
     ListView {
-        height: 180
+        id: frunkList
+        height: 130
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -37,48 +55,8 @@ ApplicationWindow {
 
         model: frunkFinder.frunks
 
-        delegate: Rectangle {
-            color: "#111"
-            radius: 3
-            height: ListView.view.height
-            width: 190
-
-            Rectangle {
-                color: "#ddd"
-                radius: 3
-                anchors.fill: parent
-                anchors.margins: 10
-
-                Rectangle {
-                    id: logoRect
-                    color: "#111"
-                    radius: 3
-                    height: parent.height * 0.2
-                    width: height
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.margins: 3
-
-                    Rectangle {
-                        color: "#ddd"
-                        height: parent.height * 0.5
-                        width: height
-                        radius: height
-                        anchors.centerIn: parent
-                    }
-                }
-
-                Label {
-                    text: modelData.name
-                    font.pixelSize: logoRect.height * 0.5
-                    anchors.left: logoRect.right
-                    anchors.top: parent.top
-                    anchors.margins: 3
-                }
-            }
-
-            // title: modelData.name
-            // value: modelData.rssi
+        delegate: FrunkPanel {
+            name: modelData.name
         }
     }
 

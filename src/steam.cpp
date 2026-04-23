@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QJsonObject>
+#include <QJsonDocument>
 #include <QNetworkReply>
 
 #if defined(Q_OS_MACOS)

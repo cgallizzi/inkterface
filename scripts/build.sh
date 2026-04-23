@@ -6,7 +6,6 @@ if command -v nproc >/dev/null 2>&1; then
 else
     CORES=$(sysctl -n hw.ncpu)
 fi
-QT_DIR=$(dirname $(qmake6 -v | tail -1 | cut -d' ' -f6))
 PLATFORM=$(uname -s | tr [:upper:] [:lower:])
 ARCH=$(uname -m | tr [:upper:] [:lower:])
 BUILD_DIR=build-$PLATFORM-$ARCH
@@ -37,11 +36,19 @@ while test $# -gt 0; do
     shift
 done
 
+if [ "$PLATFORM" == "darwin" ]; then
+    CMAKE=qt-cmake
+else
+    CMAKE=cmake
+fi
+
 echo "Building applications..."
-cmake -DGITREV=$GITREV -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B $BUILD_DIR -S .
+$CMAKE -DGITREV=$GITREV -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B $BUILD_DIR -S .
 cmake --build $BUILD_DIR --parallel $CORES
 
 if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
+    QT_DIR=$(dirname $(qmake6 -v | tail -1 | cut -d' ' -f6))
+
     echo "Grabbing appimage builder..."
     wget -c https://github.com/$(wget -q https://github.com/probonopd/go-appimage/releases/expanded_assets/continuous -O - | grep "appimagetool-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 2)
     chmod +x appimagetool-*.AppImage

@@ -6,3 +6,7 @@ include/config.h
 .pio/
 sdkconfig.*
 !sdkconfig.defaults*
+.rcc/
+.qt/
+CMakeFiles/
+meta_types/

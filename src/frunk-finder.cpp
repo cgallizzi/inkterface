@@ -34,7 +34,7 @@ void FrunkFinder::onDiscoveryEnded()
     m_frunks.clear();
 
     for (const auto &info : m_discoveryAgent->discoveredDevices()) {
-        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"MANGO"_s)) {
+        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"FRUNK-"_s)) {
             continue;
         }
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
