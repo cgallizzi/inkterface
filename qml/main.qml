@@ -27,8 +27,9 @@ ApplicationWindow {
     }
 
     FrunkPanel {
+        name: "FRUNK-123456"
         height: 390
-        width: 510
+        // width: 510
         opacity: 0.2
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
@@ -57,6 +58,8 @@ ApplicationWindow {
 
         delegate: FrunkPanel {
             name: modelData.name
+            height: 130
+            // width: 170
         }
     }
 
