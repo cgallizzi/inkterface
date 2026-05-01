@@ -1,3 +1,4 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,12 +8,21 @@ ApplicationWindow {
     id: rootWindow
 
     color: "#4d5845"
+    height: 720
     minimumHeight: 720
     minimumWidth: 720
-    height: 720
-    width: 1280
     title: `${Qt.application.displayName} (${Qt.application.version})`
     visible: true
+    width: 1280
+
+    Component.onCompleted: {
+        if (settings.value("frunkName") === "") {
+            pageLoader.source = "FrunkListPage.qml";
+        } else {
+            pageLoader.source = "FrunkConfigPage.qml";
+        }
+    }
+
     // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
 
     Item {
@@ -28,58 +38,35 @@ ApplicationWindow {
         onClicked: focusThief.forceActiveFocus()
     }
 
-    // FrunkPanel {
-    //     name: "FRUNK-123456"
-    //     rssi: "-80 dBm"
-    //     version: "FRv01"
+    Settings {
+        id: settings
 
-    //     height: 390
-    //     opacity: 0.2
-    //     anchors.horizontalCenter: parent.horizontalCenter
-    //     anchors.top: parent.top
-    //     anchors.margins: 20
-    // }
+    }
 
-    // VLabel {
-    //     text: "Nearby Devices:"
-    //     anchors.left: parent.left
-    //     anchors.bottom: frunkList.top
-    //     anchors.margins: 20
-    //     anchors.bottomMargin: 10
-    // }
+    Loader {
+        id: pageLoader
 
-    // ListView {
-    //     id: frunkList
-    //     height: 130
-    //     anchors.left: parent.left
-    //     anchors.right: parent.right
-    //     anchors.bottom: parent.bottom
-    //     anchors.margins: 20
-    //     spacing: 10
-    //     orientation: ListView.Horizontal
-
-    //     model: frunkFinder.frunks
-
-    //     delegate: FrunkPanel {
-    //         name: modelData.name
-    //         rssi: `${modelData.rssi} RSSI`
-    //         version: modelData.ifaceVersion
-    //         height: 130
-    //         opacity: !!modelData.supported ? 1.0 : 0.5
-    //     }
-    // }
-
-    // VConfirmButton {
-    //     anchors.top: parent.top
-    //     anchors.left: parent.left
-    //     anchors.margins: 10
-    //     normalText: "Exit App"
-
-    //     onConfirmed: Qt.callLater(Qt.quit)
-    // }
-
-    FrunkListPage {
         anchors.fill: parent
+    }
+
+    Connections {
+        function onError(message) {
+            toast.showError(message);
+        }
+
+        function onFrunkCleared() {
+            pageLoader.source = "FrunkListPage.qml";
+        }
+
+        function onFrunkSelected() {
+            pageLoader.source = "FrunkConfigPage.qml";
+        }
+
+        function onNotification(message) {
+            toast.showNotification(message);
+        }
+
+        target: pageLoader.item
     }
 
     VToast {

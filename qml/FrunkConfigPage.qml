@@ -1,0 +1,134 @@
+import QtCore
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import vqt
+
+Item {
+    id: control
+
+    property FrunkInfo frunk: frunkFinder.frunk
+
+    signal error(var message)
+    signal frunkCleared
+    signal notification(var message)
+
+    Settings {
+        id: settings
+
+    }
+
+    RowLayout {
+        id: topRow
+        anchors.left: parent.left
+        anchors.margins: 10
+        anchors.right: parent.right
+        anchors.top: parent.top
+        spacing: 10
+
+        VLabel {
+            font.pixelSize: 36
+            text: `${frunk.name}, ${frunk.rssi}, ${frunk.ifaceVersion}`
+        }
+
+        Item {
+            Layout.fillWidth: true
+        }
+
+        VConfirmButton {
+            normalText: "Clear Frunk"
+
+            onConfirmed: {
+                settings.setValue("frunkName", "");
+                control.frunkCleared();
+            }
+        }
+
+        VConfirmButton {
+            normalText: "Exit"
+
+            onConfirmed: Qt.callLater(Qt.quit)
+        }
+    }
+
+    GridLayout {
+        id: readoutGrid
+        columns: 3
+        columnSpacing: 10
+        rowSpacing: 10
+        anchors.top: topRow.bottom
+        anchors.left: topRow.left
+        anchors.right: topRow.right
+        anchors.bottom: parent.bottom
+        anchors.topMargin: 10
+        anchors.bottomMargin: 100
+
+        VBoxedReadout {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+        }
+
+        VBoxedReadout {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+        }
+
+        VBoxedReadout {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+        }
+
+        VSparkline {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        VSparkline {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        VSparkline {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        VSparkline {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        VSparkline {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        VSparkline {
+            title: "--"
+            value: "--"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+    }
+
+    VBevelRect {
+        anchors.top: readoutGrid.bottom
+        anchors.left: readoutGrid.left
+        anchors.right: readoutGrid.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 10
+    }
+}

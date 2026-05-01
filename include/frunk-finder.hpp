@@ -4,12 +4,16 @@
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QLowEnergyController>
 #include <QObject>
+#include <QSettings>
+#include <QtQml>
 
 using namespace Qt::StringLiterals;
 
 class FrunkInfo : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
+    QML_UNCREATABLE("Backend only.")
 
     Q_PROPERTY(QString name READ name CONSTANT)
     Q_PROPERTY(qint16 rssi READ rssi CONSTANT)
@@ -33,6 +37,7 @@ class FrunkFinder : public QObject
     Q_OBJECT
 
     Q_PROPERTY(QList<FrunkInfo *> frunks MEMBER m_frunks NOTIFY frunksChanged)
+    Q_PROPERTY(FrunkInfo *frunk READ frunk NOTIFY frunksChanged)
 
   signals:
     void frunksChanged();
@@ -46,6 +51,21 @@ class FrunkFinder : public QObject
         }
     }
 
+    FrunkInfo *frunk() const
+    {
+        QSettings settings;
+        auto frunkName = settings.value(u"frunkName"_s).toString();
+        if (frunkName.isEmpty()) {
+            return nullptr;
+        }
+        for (auto frunk : m_frunks) {
+            if (frunk->name() == frunkName) {
+                return frunk;
+            }
+        }
+        return m_placeholderFrunk;
+    }
+
   private slots:
     void onDiscoveryEnded();
     void onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error);
@@ -53,6 +73,7 @@ class FrunkFinder : public QObject
   private:
     QBluetoothDeviceDiscoveryAgent *m_discoveryAgent = nullptr;
     QList<FrunkInfo *> m_frunks;
+    FrunkInfo *m_placeholderFrunk = nullptr;
 
     void startDiscovery();
 };

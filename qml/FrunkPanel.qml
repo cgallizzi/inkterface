@@ -7,7 +7,6 @@ Image {
     id: control
     source: "qrc:/vqt/resources/frunk.svg"
     sourceSize.height: height
-    sourceSize.width: width
 
     property alias name: nameLabel.text
     property alias rssi: rssiLabel.text
