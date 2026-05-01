@@ -6,50 +6,57 @@ import vqt
 Image {
     id: control
     source: "qrc:/vqt/resources/frunk.svg"
-    // color: "#111"
-    // radius: 3
-    // height: 130
-    // width: 170
     sourceSize.height: height
     sourceSize.width: width
 
     property alias name: nameLabel.text
+    property alias rssi: rssiLabel.text
+    property alias version: versionLabel.text
+    property bool supported: true
 
-    // Rectangle {
-    //     color: "#ddd"
-    //     radius: 3
-    //     anchors.fill: parent
-    //     anchors.margins: parent.height * 0.08
+     VLabel {
+         id: nameLabel
+         color: "#333"
+         font.pixelSize: control.height * 0.102
+         anchors.left: parent.left
+         anchors.top: parent.top
+         anchors.leftMargin: control.width * 0.258
+         anchors.topMargin: control.height * 0.133
+     }
 
-    //     Rectangle {
-    //         id: logoRect
-    //         color: "#111"
-    //         radius: 3
-    //         height: parent.height * 0.2
-    //         width: height
-    //         anchors.left: parent.left
-    //         anchors.top: parent.top
-    //         anchors.margins: parent.height * 0.02
+     VLabel {
+         id: rssiLabel
+         color: "#333"
+         font.pixelSize: control.height * 0.057
+         anchors.right: parent.right
+         anchors.bottom: parent.bottom
+         anchors.rightMargin: control.width * 0.104
+         anchors.bottomMargin: control.height * 0.123
+     }
 
-    //         Rectangle {
-    //             color: "#ddd"
-    //             height: parent.height * 0.55
-    //             width: height
-    //             radius: height
-    //             anchors.centerIn: parent
-    //         }
-    //     }
+     VLabel {
+         id: versionLabel
+         color: "#333"
+         font.pixelSize: control.height * 0.057
+         anchors.left: parent.left
+         anchors.bottom: parent.bottom
+         anchors.leftMargin: control.width * 0.104
+         anchors.bottomMargin: control.height * 0.123
+     }
 
-         Label {
-             id: nameLabel
-             font.pixelSize: control.height * 0.102
-             anchors.left: parent.left
-             anchors.top: parent.top
-             anchors.leftMargin: control.width * 0.26
-             anchors.topMargin: control.height * 0.16
-             // anchors.verticalCenter: logoRect.verticalCenter
-             // anchors.left: logoRect.right
-             // anchors.margins: parent.height * 0.02
-         }
-    // }
+     Rectangle {
+         visible: !control.supported
+         color: "black"
+         opacity: 0.5
+         anchors.fill: parent
+     }
+
+     VLabel {
+         visible: !control.supported
+         text: "UNSUPPORTED"
+         rotation: 45
+         color: "#9d391a"
+         font.pixelSize: control.height * 0.15
+         anchors.centerIn: parent
+     }
 }

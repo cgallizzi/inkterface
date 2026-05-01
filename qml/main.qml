@@ -8,10 +8,12 @@ ApplicationWindow {
 
     color: "#4d5845"
     minimumHeight: 720
-    // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
-    minimumWidth: 1280
+    minimumWidth: 720
+    height: 720
+    width: 1280
     title: `${Qt.application.displayName} (${Qt.application.version})`
     visible: true
+    // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
 
     Item {
         id: focusThief
@@ -26,50 +28,58 @@ ApplicationWindow {
         onClicked: focusThief.forceActiveFocus()
     }
 
-    FrunkPanel {
-        name: "FRUNK-123456"
-        height: 390
-        // width: 510
-        opacity: 0.2
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.margins: 20
-    }
+    // FrunkPanel {
+    //     name: "FRUNK-123456"
+    //     rssi: "-80 dBm"
+    //     version: "FRv01"
 
-    VLabel {
-        text: "Nearby Devices:"
-        anchors.left: parent.left
-        anchors.bottom: frunkList.top
-        anchors.margins: 20
-        anchors.bottomMargin: 10
-    }
+    //     height: 390
+    //     opacity: 0.2
+    //     anchors.horizontalCenter: parent.horizontalCenter
+    //     anchors.top: parent.top
+    //     anchors.margins: 20
+    // }
 
-    ListView {
-        id: frunkList
-        height: 130
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: 20
-        spacing: 10
-        orientation: ListView.Horizontal
+    // VLabel {
+    //     text: "Nearby Devices:"
+    //     anchors.left: parent.left
+    //     anchors.bottom: frunkList.top
+    //     anchors.margins: 20
+    //     anchors.bottomMargin: 10
+    // }
 
-        model: frunkFinder.frunks
+    // ListView {
+    //     id: frunkList
+    //     height: 130
+    //     anchors.left: parent.left
+    //     anchors.right: parent.right
+    //     anchors.bottom: parent.bottom
+    //     anchors.margins: 20
+    //     spacing: 10
+    //     orientation: ListView.Horizontal
 
-        delegate: FrunkPanel {
-            name: modelData.name
-            height: 130
-            // width: 170
-        }
-    }
+    //     model: frunkFinder.frunks
 
-    VConfirmButton {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.margins: 10
-        normalText: "Exit App"
+    //     delegate: FrunkPanel {
+    //         name: modelData.name
+    //         rssi: `${modelData.rssi} RSSI`
+    //         version: modelData.ifaceVersion
+    //         height: 130
+    //         opacity: !!modelData.supported ? 1.0 : 0.5
+    //     }
+    // }
 
-        onConfirmed: Qt.callLater(Qt.quit)
+    // VConfirmButton {
+    //     anchors.top: parent.top
+    //     anchors.left: parent.left
+    //     anchors.margins: 10
+    //     normalText: "Exit App"
+
+    //     onConfirmed: Qt.callLater(Qt.quit)
+    // }
+
+    FrunkListPage {
+        anchors.fill: parent
     }
 
     VToast {
