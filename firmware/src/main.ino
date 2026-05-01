@@ -20,6 +20,8 @@
 #define SPARKBOX_HEIGHT 100
 #define SPARKBOX_WIDTH 209
 
+#define INTERFACE_VERSION "FRv01"
+
 NimBLEServer *BLE_SERVER = nullptr;
 std::string BLE_NAME = "FRUNK";
 
@@ -350,7 +352,7 @@ void setup()
     BLEAdvertising *advert = NimBLEDevice::getAdvertising();
     BLEAdvertisementData ad_data{};
     ad_data.setName(BLE_NAME);
-    ad_data.setManufacturerData("\x5d\x05MFv001");
+    ad_data.setManufacturerData("\x5d\x05" INTERFACE_VERSION);
     advert->setAdvertisementData(ad_data);
     advert->addServiceUUID(SERVICE_UUID);
     advert->enableScanResponse(false);
@@ -528,7 +530,7 @@ void drawStatic()
 
     // version tag
     std::stringstream tag;
-    tag << BLE_NAME << " " << GIT_REVISION;
+    tag << BLE_NAME << " " << GIT_REVISION << " " << INTERFACE_VERSION;
     x = 4;
     y = MF_DISPLAY.height() - 12;
     drawText(tag.str().c_str(), x, y);
