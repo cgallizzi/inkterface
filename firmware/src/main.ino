@@ -145,9 +145,15 @@ struct State {
         sparks.clear();
         sparks.resize(6);
 
+        uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
+        std::stringstream name;
+        name << "FRUNK-";
+        name << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << addr;
+        BLE_NAME = name.str();
+
         connected = false;
         topLine = "Waiting on connection...";
-        midLine = "";
+        midLine = BLE_NAME;
         botLine = "";
         hostMsg = "";
         keyvals[0].key = "OS";
@@ -166,8 +172,8 @@ struct State {
         keyvals[6].val = "--%";
         keyvals[7].key = "GPU";
         keyvals[7].val = "--%";
-        keyvals[8].key = "FPS";
-        keyvals[8].val = "--";
+        keyvals[8].key = "MEM";
+        keyvals[8].val = "--%";
     }
 } STATE;
 
@@ -298,17 +304,7 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 
 void setup()
 {
-    STATE.reset();
-
     Serial.begin(115200);
-
-    Serial.println("initializing display");
-    MF_DISPLAY.begin(THINKINK_MONO);
-    MF_DISPLAY.clearBuffer();
-    MF_DISPLAY.fillScreen(EPD_WHITE);
-    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, EPD_BLACK);
-    MF_DISPLAY.display();
-    DISP_DEBOUNCE = 10;
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
@@ -342,6 +338,15 @@ void setup()
     characteristic->setCallbacks(&FLUSH_CALLBACKS);
 
     service->start();
+
+    Serial.println("initializing display");
+    STATE.reset();
+    MF_DISPLAY.begin(THINKINK_MONO);
+    MF_DISPLAY.clearBuffer();
+    MF_DISPLAY.fillScreen(EPD_WHITE);
+    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, EPD_BLACK);
+    MF_DISPLAY.display();
+    DISP_DEBOUNCE = 10;
 
     Serial.println("starting ble advert");
     uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
