@@ -5,18 +5,24 @@
 #include <QLowEnergyController>
 #include <QObject>
 
+using namespace Qt::StringLiterals;
+
 class FrunkInfo : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(QString name READ name CONSTANT)
     Q_PROPERTY(qint16 rssi READ rssi CONSTANT)
+    Q_PROPERTY(QString ifaceVersion READ ifaceVersion CONSTANT)
+    Q_PROPERTY(bool supported READ supported CONSTANT)
 
   public:
     explicit FrunkInfo(const QBluetoothDeviceInfo &info, QObject *parent = nullptr);
 
-    QString name() { return m_info.name(); }
-    qint16 rssi() { return m_info.rssi(); }
+    QString name() const { return m_info.name(); }
+    qint16 rssi() const { return m_info.rssi(); }
+    QString ifaceVersion() const { return QString::fromLatin1(m_info.manufacturerData(0x055d)); }
+    bool supported() const { return ifaceVersion() == u"FRv01"_s; }
 
   private:
     QBluetoothDeviceInfo m_info;

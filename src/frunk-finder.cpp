@@ -1,6 +1,7 @@
 #include "frunk-finder.hpp"
 
 #include <QDebug>
+#include <algorithm>
 
 #define RSSI_LIMIT -80
 
@@ -40,6 +41,15 @@ void FrunkFinder::onDiscoveryEnded()
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
         m_frunks.append(new FrunkInfo(info, this));
     }
+    std::stable_sort(m_frunks.begin(), m_frunks.end(), [](const FrunkInfo *a, const FrunkInfo *b) {
+        if (a->supported() != b->supported()) {
+            return a->supported();
+        }
+        if (a->rssi() != b->rssi()) {
+            return a->rssi() > b->rssi();
+        }
+        return a->name() < b->name();
+    });
     emit frunksChanged();
 
     startDiscovery();
