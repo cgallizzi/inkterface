@@ -54,7 +54,7 @@ Image {
          visible: !control.supported
          text: "UNSUPPORTED"
          rotation: 45
-         color: "#9d391a"
+         color: "#b74623"
          font.pixelSize: control.height * 0.15
          anchors.centerIn: parent
      }
