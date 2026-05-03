@@ -18,8 +18,8 @@ Item {
         var frunk = frunkList.model[frunkList.currentIndex];
         if (!frunk.supported) {
             control.error("Cannot select an unsupported frunk!");
+            return;
         }
-        control.notification(`Selecting ${frunk.name}`);
         settings.setValue("frunkName", frunk.name);
         control.frunkSelected();
     }
@@ -70,8 +70,18 @@ Item {
             height: ListView.view.height
             name: modelData.name || "NAME"
             rssi: `${modelData.rssi || -1} RSSI`
-            supported: modelData.supported || true
+            supported: !!modelData.supported
             version: modelData.ifaceVersion || "VER"
+
+            VButton {
+                visible: frunkList.currentIndex === index && modelData.supported
+                text: "Select"
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.top
+                anchors.margins: 10
+
+                onClicked: control.selectFrunk()
+            }
         }
 
         Component.onCompleted: {
@@ -144,7 +154,10 @@ Item {
         text: "<"
         width: 60
 
-        onClicked: frunkList.currentIndex = Math.max(frunkList.currentIndex - 1, 0)
+        onClicked: {
+            frunkList.currentIndex = Math.max(frunkList.currentIndex - 1, 0)
+            frunkList.forceActiveFocus()
+        }
     }
 
     VButton {
@@ -161,7 +174,10 @@ Item {
         text: ">"
         width: 60
 
-        onClicked: frunkList.currentIndex = Math.min(frunkList.currentIndex + 1, frunkList.count - 1)
+        onClicked: {
+            frunkList.currentIndex = Math.min(frunkList.currentIndex + 1, frunkList.count - 1)
+            frunkList.forceActiveFocus()
+        }
     }
 
     BusyIndicator {
