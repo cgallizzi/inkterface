@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFile>
 #include <QObject>
+#include <QSettings>
 #include <QSysInfo>
 #include <QUuid>
 
@@ -28,7 +29,7 @@
 #define RECON_INTERVAL 2000
 #define STATS_INTERVAL 2000
 #define MANGO_INTERVAL 15000
-#define SEND_INTERVAL 30000
+#define SEND_INTERVAL 60000
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -39,7 +40,7 @@ inline int64_t NOW_MS()
         .count();
 }
 
-Frunk::Frunk(const QString& name, QObject *parent)
+Frunk::Frunk(const QString &name, QObject *parent)
     : QObject(parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
@@ -50,6 +51,13 @@ Frunk::Frunk(const QString& name, QObject *parent)
     , m_sendTimer(new QTimer(this))
 {
     collectSystemState();
+
+    QSettings settings;
+    auto frunkName = settings.value(u"frunkName"_s).toString();
+    if (m_desiredName.isEmpty() && !frunkName.isEmpty()) {
+        qInfo() << "using" << frunkName << "from settings as desired name";
+        m_desiredName = frunkName;
+    }
 
     m_reconTimer->setSingleShot(false);
     m_reconTimer->setInterval(RECON_INTERVAL);
@@ -63,7 +71,7 @@ Frunk::Frunk(const QString& name, QObject *parent)
     m_mangoTimer->setSingleShot(false);
     m_mangoTimer->setInterval(MANGO_INTERVAL);
     connect(m_mangoTimer, &QTimer::timeout, this, &Frunk::collectMangoData);
-    m_mangoTimer->start();
+    // m_mangoTimer->start();
 
     m_sendTimer->setSingleShot(false);
     m_sendTimer->setInterval(SEND_INTERVAL);
@@ -103,12 +111,11 @@ void Frunk::onDiscoveryEnded()
         !m_controller || m_controller->state() == QLowEnergyController::UnconnectedState;
     QBluetoothDeviceInfo nearest;
     for (const auto &info : m_discoveryAgent->discoveredDevices()) {
-        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"MANGO"_s)) {
+        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"FRUNK-"_s)) {
             continue;
         }
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
-        if (!m_desiredName.isEmpty())
-        {
+        if (!m_desiredName.isEmpty()) {
             if (m_desiredName == info.name()) {
                 nearest = info;
                 break;
@@ -305,7 +312,7 @@ void Frunk::onAppStarted(steam::App details)
     state.clearPoints(5);
     state.dirty = true;
     m_statsTimer->start(100);
-    m_mangoTimer->start(100);
+    // m_mangoTimer->start(100);
     m_sendTimer->start(500);
 }
 
@@ -417,11 +424,11 @@ void Frunk::collectSystemState()
 
     auto user = m_steam->currentUser();
     state.topLine = QSysInfo::machineHostName();
-    state.midLine = user.isEmpty() ? u"No user signed in."_s : u"%1 is signed in."_s.arg(user);
+    state.midLine = user;
     if (state.app.name.isEmpty() && !state.botLine.isEmpty()) {
         state.botLine = "";
     } else if (!state.app.name.isEmpty()) {
-        state.botLine = u"Playing %1"_s.arg(state.app.name);
+        state.botLine = state.app.name;
     }
 
     val = QSysInfo::productVersion();
@@ -500,7 +507,7 @@ void Frunk::collectMangoData()
     mango::start_logging(state.app.appid.toLatin1());
 
     m_mangoTimer->setInterval(MANGO_INTERVAL);
-    m_mangoTimer->start();
+    // m_mangoTimer->start();
 }
 
 QString Frunk::findHwmonNode(const QString &name)
