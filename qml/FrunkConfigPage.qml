@@ -27,11 +27,10 @@ Item {
         spacing: 10
 
         VLabel {
+            id: nameLabel
             font.pixelSize: 36
             text: `${frunk.name}, ${frunk.rssi}, ${frunk.ifaceVersion}`
-        }
-
-        Item {
+            elide: Label.ElideRight
             Layout.fillWidth: true
         }
 
@@ -59,9 +58,9 @@ Item {
         anchors.top: topRow.bottom
         anchors.left: topRow.left
         anchors.right: topRow.right
-        anchors.bottom: parent.bottom
+        anchors.bottom: serviceRect.top
         anchors.topMargin: 10
-        anchors.bottomMargin: 100
+        anchors.bottomMargin: 10
 
         VBoxedReadout {
             title: "--"
@@ -124,11 +123,47 @@ Item {
         }
     }
 
+    VLabel {
+        text: "COMING SOON"
+        font.pixelSize: readoutGrid.height * 0.2
+        rotation: 30
+        anchors.centerIn: readoutGrid
+    }
+
     VBevelRect {
-        anchors.top: readoutGrid.bottom
-        anchors.left: readoutGrid.left
-        anchors.right: readoutGrid.right
+        id: serviceRect
+        shape: 1
+        height: 72
         anchors.bottom: parent.bottom
+        anchors.left: readoutGrid.left
+        anchors.right: parent.right
         anchors.margins: 10
+        anchors.rightMargin: -(lineWidth + 1)
+
+        RowLayout {
+            spacing: 10
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.topMargin: 10
+            anchors.leftMargin: 15
+            anchors.rightMargin: Math.abs(parent.anchors.rightMargin) + 10
+
+            VLabel {
+                text: "Service:"
+                font.bold: true
+                font.italic: true
+            }
+
+            VLabel {
+                text: "Not Installed"
+                elide: Label.ElideRight
+                Layout.fillWidth: true
+            }
+
+            VButton {
+                text: "Install"
+            }
+        }
     }
 }
