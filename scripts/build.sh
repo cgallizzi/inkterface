@@ -76,6 +76,7 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     if [[ "$GITREV" != *"DIRTY"* ]]; then
         pushd $DIST_DIR
         tar zcf ../mango-frunk-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
+        cp mango-frunk-*.AppImage mango-frunk.AppImage
         popd
     fi
 fi
