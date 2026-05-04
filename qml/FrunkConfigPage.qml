@@ -132,6 +132,7 @@ Item {
 
     VBevelRect {
         id: serviceRect
+        style: svcMgr.isRunning ? 2 : 1
         shape: 1
         height: 72
         anchors.bottom: parent.bottom
@@ -156,13 +157,29 @@ Item {
             }
 
             VLabel {
-                text: "Not Installed"
+                text: {
+                    if (svcMgr.isRunning) {
+                        return "Running";
+                    } else if (svcMgr.isInstalled) {
+                        return "Installed, Not Running";
+                    }
+                    return "Not Installed"
+                }
                 elide: Label.ElideRight
                 Layout.fillWidth: true
             }
 
             VButton {
-                text: "Install"
+                text:  svcMgr.isInstalled ? "Uninstall" : "Install"
+
+                onClicked: svcMgr.isInstalled ? svcMgr.uninstallService() : svcMgr.installService()
+            }
+
+            VButton {
+                enabled: svcMgr.isInstalled
+                text:  svcMgr.isRunning ? "Stop" : "Start"
+
+                onClicked: svcMgr.isRunning ? svcMgr.stopService() : svcMgr.startService()
             }
         }
     }

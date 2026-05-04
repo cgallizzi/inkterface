@@ -20,6 +20,7 @@
 #include "config.h"
 #include "frunk-finder.hpp"
 #include "frunk.hpp"
+#include "svcmgr.hpp"
 #include "unsig.hpp"
 
 #define EXIT_SUCCESS 0
@@ -90,6 +91,9 @@ int runUi(int argc, char *argv[])
 
     FrunkFinder *frunkFinder = new FrunkFinder(&app);
     ctx->setContextProperty("frunkFinder", frunkFinder);
+
+    SvcMgr *svcMgr = new SvcMgr(&app);
+    ctx->setContextProperty("svcMgr", svcMgr);
 
     const QUrl url(u"qrc:/%1/qml/main.qml"_s.arg(QML_URI));
     QObject::connect(

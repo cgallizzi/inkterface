@@ -9,8 +9,16 @@ class SvcMgr : public QObject
 {
     Q_OBJECT
 
+    Q_PROPERTY(bool isInstalled READ isInstalled NOTIFY stateChanged)
+    Q_PROPERTY(bool isRunning READ isRunning NOTIFY stateChanged)
+
   public:
     explicit SvcMgr(QObject *parent = nullptr);
+    bool isInstalled() const { return m_installed; }
+    bool isRunning() const { return m_running; }
+
+  signals:
+    void stateChanged();
 
   public slots:
     void installService();
@@ -19,17 +27,11 @@ class SvcMgr : public QObject
     void stopService();
     void check();
 
-  private slots:
-    void onCheckErrorOccurred(QProcess::ProcessError error);
-    void onCheckFinished(int exitCode, QProcess::ExitStatus exitStatus = NormalExit);
-    void onCheckReadyReadStandardError();
-    void onCheckReadyReadStandardOutput();
-    void onCheckStarted();
-    void onCheckStateChanged(QProcess::ProcessState newState);
-
   private:
     QTimer *m_checkTimer = nullptr;
-    QProcess *m_checkProc = nullptr;
+
+    bool m_installed = false;
+    bool m_running = false;
 };
 
 #endif /* SVCMGR_HPP */
