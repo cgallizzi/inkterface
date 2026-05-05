@@ -8,12 +8,12 @@ ApplicationWindow {
     id: rootWindow
 
     color: "#4d5845"
-    height: 720
-    minimumHeight: 720
-    minimumWidth: 720
+    height: Math.min(720, Screen.height)
+    minimumHeight: Math.min(720, Screen.height)
+    minimumWidth: Math.min(720, Screen.width)
     title: `${Qt.application.displayName} (${Qt.application.version})`
     visible: true
-    width: 1280
+    width: Math.min(1280, Screen.width)
 
     Component.onCompleted: {
         if (settings.value("frunkName") === "") {
