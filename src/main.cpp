@@ -20,6 +20,7 @@
 #include "config.h"
 #include "frunk-finder.hpp"
 #include "frunk.hpp"
+#include "loghandler.hpp"
 #include "svcmgr.hpp"
 #include "unsig.hpp"
 
@@ -170,6 +171,8 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
 
 int main(int argc, char *argv[])
 {
+    LogHandler::install("mango-frunk.log", 50);
+
     QLoggingCategory::setFilterRules("qt.bluetooth* = false");
     qDebug() << PROJECT_DISPLAY_NAME << "version" << PROJECT_GITREV;
 
