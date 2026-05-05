@@ -115,6 +115,10 @@ void SvcMgr::stopService()
 void SvcMgr::check()
 {
     int exitCode = std::system("systemctl --no-pager --user is-active " SVC_NAME);
+    // on some platforms the exit code is in the high byte
+    if (exitCode > 0xFF) {
+        exitCode = (exitCode >> 8) & 0xFF;
+    }
     // service not found
     if (exitCode == 4) {
         m_installed = false;
@@ -135,6 +139,7 @@ void SvcMgr::check()
         m_installed = true;
         m_running = true;
     }
-    qInfo() << "Service exit code:" << exitCode << "installed:" << m_installed << ", running:" << m_running;
+    qInfo() << "Service exit code:" << exitCode << "installed:" << m_installed
+            << ", running:" << m_running;
     emit stateChanged();
 }
