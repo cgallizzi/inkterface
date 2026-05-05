@@ -135,6 +135,6 @@ void SvcMgr::check()
         m_installed = true;
         m_running = true;
     }
-    qInfo() << "Service installed:" << m_installed << ", running:" << m_running;
+    qInfo() << "Service exit code:" << exitCode << "installed:" << m_installed << ", running:" << m_running;
     emit stateChanged();
 }
