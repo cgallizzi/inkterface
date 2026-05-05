@@ -18,7 +18,7 @@ class Frunk : public QObject
     Q_OBJECT
 
   public:
-    explicit Frunk(const QString& name = "", QObject *parent = nullptr);
+    explicit Frunk(const QString &name = "", QObject *parent = nullptr);
     ~Frunk()
     {
         if (m_controller) {
@@ -138,6 +138,9 @@ class Frunk : public QObject
             keyvals.resize(9);
         }
     } state;
+
+    const QStringList ScalarSources;
+    const QStringList VectorSources;
 
   public slots:
     void stop();

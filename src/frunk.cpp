@@ -42,6 +42,8 @@ inline int64_t NOW_MS()
 
 Frunk::Frunk(const QString &name, QObject *parent)
     : QObject(parent)
+    , ScalarSources({u"OS"_s, u"BIOS"_s, u"STEAM"_s})
+    , VectorSources({u"CPU"_s, u"GPU"_s, u"FAN"_s})
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
     , m_desiredName(name)
