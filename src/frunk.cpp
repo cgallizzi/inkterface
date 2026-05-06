@@ -42,36 +42,62 @@ inline int64_t NOW_MS()
 
 Frunk::Frunk(const QString &name, QObject *parent)
     : QObject(parent)
-    , ScalarSources({u"OS"_s, u"BIOS"_s, u"STEAM"_s})
+    , ScalarSources({
+          u"OS"_s,
+          u"BIOS"_s,
+          u"STEAM"_s,
+          // # of installed games
+          // most recent achievment maybe
+      })
     , VectorSources({
-            u"FAN"_s, // hwmon steamdeck_hwmon, fan1_input (rpm)
-            u"GPU SCLK"_s, // hwmon amdgpu, freq1_input (Hz) (gpu clock)
-            u"GPU MCLK"_s, // hwmon amdgpu, freq2_input (Hz) (mem clock)
-            u"GPU V"_s, // hwmon amdgpu, in0_input (millivolts)
-            u"GPU W"_s, // hwmon amdgpu, power1_average (microwatts)
-            u"GPU"_s, // hwmon amdgpu, temp2_input (millidegrees C)
-            u"GPU MEM"_s, // hwmon amdgpu, temp3_input
-            u"GPU %"_s, // hwmon amdgpu/device, gpu_busy_percent
-            u"GPU MEM %"_s, // hwmon amdgpu/device, mem_busy_percent
+          u"FAN"_s,       // hwmon steamdeck_hwmon, fan1_input (rpm)
+          u"GPU SCLK"_s,  // hwmon amdgpu, freq1_input (Hz) (gpu clock)
+          u"GPU MCLK"_s,  // hwmon amdgpu, freq2_input (Hz) (mem clock)
+          u"GPU V"_s,     // hwmon amdgpu, in0_input (millivolts)
+          u"GPU W"_s,     // hwmon amdgpu, power1_average (microwatts)
+          u"GPU"_s,       // hwmon amdgpu, temp2_input (millidegrees C)
+          u"GPU MEM"_s,   // hwmon amdgpu, temp3_input
+          u"GPU %"_s,     // hwmon amdgpu/device, gpu_busy_percent
+          u"GPU MEM %"_s, // hwmon amdgpu/device, mem_busy_percent
 
-            u"SSD"_s, // hwmon nvme, temp1_input (millidegrees C)
+          u"SSD"_s, // hwmon nvme, temp1_input (millidegrees C)
 
-            u"CPU"_s, // hwmon k10temp, temp1_input (millidegrees C)
-            u"CPU %"_s, // /proc/stat
-                        // sum these columns to get total time working
-                        // $2 / user time
-                        // $4 / system time
-                        // $3 / nice time
-                        // $7 / irq time
-                        // $8 / softirq time
-                        // then take that sum and add this to get total cpu time
-                        // $5 / idle time
-                        //
-                        // wait a beat, then take another sample and get new
-                        // values for total time working
+          u"CPU"_s,   // hwmon k10temp, temp1_input (millidegrees C)
+          u"CPU %"_s, // /proc/stat
+                      // sum these columns to get bt1 (first busy time)
+                      // $2 / user time (0)
+                      // $3 / nice time (1)
+                      // $4 / system time (2)
+                      // $7 / irq time (5)
+                      // $8 / softirq time (6)
+                      //
+                      // then take bt1 and add this column for tt1 (first total time)
+                      // $5 / idle time (3)
+                      //
+                      // wait a beat, the interval is unimportant, then grab
+                      // the same values again as bt2 and tt2
+                      // then (bt2 - bt1) / (tt2 - tt1) * 100 is the busy percent
 
-            u"RAM"_s, // /proc/meminfo, MemTotal/MemFree/MemAvailable
-         })
+          u"RAM %"_s, // /proc/meminfo, (MemTotal - MemAvailable) / MemTotal * 100
+                      // should always be in kB (KiB) but since we're just grabbing
+                      // percentage we don't care about the units
+
+          u"UPTIME"_s, // /proc/uptime, first column in seconds
+      })
+    /* other ideas for things to display:
+     *  active download progress as discrete bar
+     *  quote of the day
+     *  gabe/gnomekyle faces
+     *  steampal-chan face
+     *  clock (analog and digital, updates every minute)
+     *  portal sentry eye
+     *  companion cube
+     *  literal easter egg
+     *  weather display (need to pickup location or allow setting location)
+     *  top style readout (likely top n-processes aggregated over like 30+ seconds)
+     *  show connected controllers, just steam controller initially, other HID devices
+     *      could be identified later or added by community
+     */
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
     , m_desiredName(name)
