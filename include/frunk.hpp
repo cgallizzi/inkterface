@@ -12,6 +12,7 @@
 #include <QTimer>
 
 #include "steam.hpp"
+#include "sysstats.hpp"
 
 class Frunk : public QObject
 {
@@ -169,6 +170,7 @@ class Frunk : public QObject
     QLowEnergyService *m_service = nullptr;
     steam::Steam *m_steam = nullptr;
     QString m_desiredName = "";
+    SysStats* m_stats = nullptr;
 
     QTimer *m_reconTimer = nullptr;
     QTimer *m_statsTimer = nullptr;

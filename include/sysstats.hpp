@@ -15,6 +15,7 @@ class SysStats : public QObject
   public:
     explicit SysStats(QObject *parent = nullptr);
 
+    QString getHostName() { return QSysInfo::machineHostName(); }
     QString getOSVersion() { return QSysInfo::productVersion(); }
     QString getBIOSVersion()
     {
@@ -54,6 +55,16 @@ class SysStats : public QObject
     double getRAMPerc();
     // in seconds
     double getUptime();
+
+    // f.setFileName("/etc/os-release");
+    // if (f.exists() && f.open(QFile::ReadOnly)) {
+    //     ba = f.readAll();
+    //     f.close();
+    //     val = QString::fromUtf8(ba).trimmed();
+    //     auto idx = val.indexOf("BUILD_ID=") + 9;
+    //     val = val.mid(idx, val.indexOf("\n", idx));
+    // }
+    // state.setKeyVal(0, "OS", val);
 
   private:
     double readAsDouble(const QString &filepath)

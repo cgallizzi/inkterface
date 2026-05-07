@@ -101,6 +101,7 @@ Frunk::Frunk(const QString &name, QObject *parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
     , m_desiredName(name)
+    , m_stats(new SysStats(this))
     , m_reconTimer(new QTimer(this))
     , m_statsTimer(new QTimer(this))
     , m_mangoTimer(new QTimer(this))
@@ -363,9 +364,6 @@ void Frunk::onAppStarted(steam::App details)
             state.app.name.append(c);
         }
     }
-    state.clearPoints(3);
-    state.clearPoints(4);
-    state.clearPoints(5);
     state.dirty = true;
     m_statsTimer->start(100);
     // m_mangoTimer->start(100);
@@ -377,12 +375,6 @@ void Frunk::onAppStopped(steam::App details)
     qDebug() << "App stopped:" << details.appid << "," << details.name;
     state.app.appid.clear();
     state.app.name.clear();
-    state.setKeyVal(6, "", "");
-    state.setKeyVal(7, "", "");
-    state.setKeyVal(8, "", "");
-    state.clearPoints(3);
-    state.clearPoints(4);
-    state.clearPoints(5);
     state.dirty = true;
     mango::stop_logging(); // no harm in making sure we've stopped the logging session
     m_statsTimer->start(100);
@@ -473,79 +465,49 @@ void Frunk::injestMangoLog(QString path)
 
 void Frunk::collectSystemState()
 {
-    QString val;
     QFile f;
     QByteArray ba;
     QDir d;
 
-    auto user = m_steam->currentUser();
-    state.topLine = QSysInfo::machineHostName();
-    state.midLine = user;
+    state.topLine = m_stats->getHostName();
+    state.midLine = m_steam->currentUser();
+    ;
     if (state.app.name.isEmpty() && !state.botLine.isEmpty()) {
         state.botLine = "";
     } else if (!state.app.name.isEmpty()) {
         state.botLine = state.app.name;
     }
 
-    val = QSysInfo::productVersion();
-    state.setKeyVal(0, "OS", val);
-
-    // val = "N/A"
-    // f.setFileName("/etc/os-release");
-    // if (f.exists() && f.open(QFile::ReadOnly)) {
-    //     ba = f.readAll();
-    //     f.close();
-    //     val = QString::fromUtf8(ba).trimmed();
-    //     auto idx = val.indexOf("BUILD_ID=") + 9;
-    //     val = val.mid(idx, val.indexOf("\n", idx));
-    // }
-    // state.setKeyVal(0, "OS", val);
-
-    val = "N/A";
-    f.setFileName("/sys/class/dmi/id/bios_version");
-    if (f.exists() && f.open(QFile::ReadOnly)) {
-        ba = f.readAll();
-        f.close();
-        val = QString::fromUtf8(ba).trimmed();
-    }
-    state.setKeyVal(1, "BIOS", val);
-
-    val = "N/A";
-    d.setPath("/home/deck/.steam/steam/package");
-    for (auto entry : d.entryList({{"*.manifest"}})) {
-        f.setFileName(d.absoluteFilePath(entry));
-        if (f.exists() && f.open(QFile::ReadOnly)) {
-            while (true) {
-                ba = f.readLine();
-                if (ba.contains("version")) {
-                    break;
-                }
-            }
-            f.close();
-            ba = ba.trimmed().last(14);
-            ba.replace('"', ' ');
-            val = QString::fromUtf8(ba).trimmed();
-        }
-        break;
-    }
-    state.setKeyVal(2, "STEAM", val);
+    state.setKeyVal(0, "OS", m_stats->getOSVersion());
+    state.setKeyVal(1, "BIOS", m_stats->getBIOSVersion());
+    state.setKeyVal(2, "STEAM", m_steam->steamVersion());
 
     double x = NOW_MS();
     double y = 0;
 
-    // cpu Tctl, seems nice and accurate
-    y = readHwmonNode("k10temp", "temp1_input");
+    y = m_stats->getCPUTemp();
     state.setKeyVal(3, "CPU", u"%1 C"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(0, x, y);
 
-    // gpu junction
-    y = readHwmonNode("amdgpu", "temp2_input");
+    y = m_stats->getGPUTemp();
     state.setKeyVal(4, "GPU", u"%1 C"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(1, x, y);
 
-    y = readHwmonNode("steamdeck_hwmon", "fan1_input", 1.0);
+    y = m_stats->getFanRPM();
     state.setKeyVal(5, "FAN", u"%1 RPM"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(2, x, y);
+
+    y = m_stats->getCPUPerc();
+    state.setKeyVal(6, "CPU", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.appendPoint(3, x, y);
+
+    y = m_stats->getGPUPerc();
+    state.setKeyVal(7, "GPU", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.appendPoint(4, x, y);
+
+    y = m_stats->getRAMPerc();
+    state.setKeyVal(8, "RAM", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.appendPoint(5, x, y);
 
     m_statsTimer->setInterval(STATS_INTERVAL);
     m_statsTimer->start();
@@ -564,48 +526,6 @@ void Frunk::collectMangoData()
 
     m_mangoTimer->setInterval(MANGO_INTERVAL);
     // m_mangoTimer->start();
-}
-
-QString Frunk::findHwmonNode(const QString &name)
-{
-    static QMap<QString, QString> nodes;
-    if (nodes.contains(name)) {
-        return nodes[name];
-    }
-
-    QFile f;
-    QString data;
-    QDir d{"/sys/class/hwmon"};
-    for (auto entry : d.entryList({{"hwmon*"}})) {
-        f.setFileName(d.absoluteFilePath(entry) + "/name");
-        if (f.exists() && f.open(QFile::ReadOnly)) {
-            data = QString::fromUtf8(f.readAll()).trimmed();
-            f.close();
-            nodes[data] = d.absoluteFilePath(entry);
-        }
-    }
-
-    return nodes.value(name);
-}
-
-double Frunk::readHwmonNode(const QString &name, const QString &field, const double &scale)
-{
-    auto path = findHwmonNode(name);
-    if (path.isEmpty()) {
-        return 0.0;
-    }
-    path += "/" + field;
-
-    QString data;
-    QFile f{path};
-    if (f.exists() && f.open(QFile::ReadOnly)) {
-        data = QString::fromUtf8(f.readAll()).trimmed();
-        f.close();
-    } else {
-        return 0.0;
-    }
-
-    return data.toDouble() / scale;
 }
 
 void Frunk::sendSystemState()

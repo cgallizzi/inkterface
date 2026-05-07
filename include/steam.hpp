@@ -22,6 +22,7 @@ class Steam : public QObject
     explicit Steam(QObject *parent = nullptr);
 
     QString currentUser(bool account_name = false);
+    QString steamVersion();
 
   public slots:
     void watchConsoleLog(bool start = false);

@@ -2,8 +2,8 @@
 
 #include <QDebug>
 #include <QDir>
-#include <QJsonObject>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkReply>
 
 #if defined(Q_OS_MACOS)
@@ -48,6 +48,31 @@ QString Steam::currentUser(bool account_name)
         s = currentUser(true);
     }
     return s;
+}
+
+QString Steam::steamVersion()
+{
+
+    QDir d(STEAM_PFX + "/package");
+    QFile f;
+    QByteArray ba;
+    for (auto entry : d.entryList({{"*.manifest"}})) {
+        f.setFileName(d.absoluteFilePath(entry));
+        if (f.exists() && f.open(QFile::ReadOnly)) {
+            while (true) {
+                ba = f.readLine();
+                if (ba.contains("version")) {
+                    break;
+                }
+            }
+            f.close();
+            ba = ba.trimmed().last(14);
+            ba.replace('"', ' ');
+            return QString::fromUtf8(ba).trimmed();
+        }
+        break;
+    }
+    return {};
 }
 
 void Steam::watchConsoleLog(bool start)
