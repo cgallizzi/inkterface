@@ -1,10 +1,12 @@
 #ifndef SYSSTATS_HPP
 #define SYSSTATS_HPP
 
-#include <chrono>
-
+#include <QDir>
+#include <QFile>
 #include <QObject>
 #include <QSysInfo>
+
+using namespace Qt::Literals::StringLiterals;
 
 class SysStats : public QObject
 {
@@ -24,19 +26,33 @@ class SysStats : public QObject
         }
         return val;
     }
+    // in RPM
     double getFanRPM() { return readHwmonNode("steamdeck_hwmon", "fan1_input"); }
-    double getGPUSCLK() { return readHwmonNode("amdgpu", "freq1_input"); }
-    double getGPUMCLK() { return readHwmonNode("amdgpu", "freq2_input"); }
+    // in GHz
+    double getGPUSCLK() { return readHwmonNode("amdgpu", "freq1_input", 0.000000001); }
+    // in MHz
+    double getGPUMCLK() { return readHwmonNode("amdgpu", "freq2_input", 0.000001); }
+    // in volts
     double getGPUV() { return readHwmonNode("amdgpu", "in0_input", 0.001); }
+    // in watts
     double getGPUW() { return readHwmonNode("amdgpu", "power1_average", 0.000001); }
+    // in degrees C
     double getGPUTemp() { return readHwmonNode("amdgpu", "temp2_input", 0.001); }
+    // in degrees C
     double getGPUMemTemp() { return readHwmonNode("amdgpu", "temp3_input", 0.001); }
+    // in percentage (0-100)
     double getGPUPerc() { return readHwmonDeviceNode("amdgpu", "gpu_busy_percent"); }
+    // in percentage (0-100)
     double getGPUMemPerc() { return readHwmonDeviceNode("amdgpu", "mem_busy_percent"); }
+    // in degrees C
     double getSSDTemp() { return readHwmonNode("nvme", "temp1_input", 0.001); }
+    // in degrees C
     double getCPUTemp() { return readHwmonNode("k10temp", "temp1_input", 0.001); }
+    // in percentage (0-100)
     double getCPUPerc();
+    // in percentage (0-100)
     double getRAMPerc();
+    // in seconds
     double getUptime();
 
   private:
