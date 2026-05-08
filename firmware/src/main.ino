@@ -266,8 +266,10 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
     typedef struct __attribute__((packed)) {
         uint8_t index;
         uint8_t count;
+        float minVal;
+        float maxVal;
         uint16_t values[32 * 2]; // 32 (x, y) pairs, 128 bytes
-        // total 130 bytes, larger than our MTU so should be big enough for max points
+        // total 138 bytes, smaller than our MTU so should be big enough for max points
     } Msg;
 
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
@@ -280,7 +282,10 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
             Serial.print(msg.index);
             Serial.print(") with ");
             Serial.print(msg.count);
-            Serial.println(" values");
+            Serial.print(" values, min ");
+            Serial.print(msg.minVal);
+            Serial.print(", max ");
+            Serial.println(msg.maxVal);
             STATE.sparks[msg.index].clear();
             for (int i = 0; i < msg.count; i += 2) {
                 STATE.sparks[msg.index].emplace_back(msg.values[i] / 65535.0,
@@ -309,7 +314,7 @@ void setup()
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
     NimBLEDevice::setPower(2); // we don't need much power
-    NimBLEDevice::setMTU(128); // bump the mtu to fit a decent number of points
+    NimBLEDevice::setMTU(256); // bump the mtu to fit a decent number of points
     BLE_SERVER = NimBLEDevice::createServer();
     BLE_SERVER->setCallbacks(&SERVER_CALLBACKS);
     BLEService *service = BLE_SERVER->createService(SERVICE_UUID);

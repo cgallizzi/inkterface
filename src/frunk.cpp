@@ -285,6 +285,8 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
             qFuzzyCompare(points.yMax + 1.0, points.yMin + 1.0)) {
             // handle potential divide by zero errors, if line is flat, draw a flat line
             s << uint8_t(4);
+            s << float(points.yMin);
+            s << float(points.yMax);
             s << uint16_t(0);
             s << uint16_t(65535 / 2);
             s << uint16_t(65535);
@@ -292,6 +294,8 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
         } else {
             // usually we just scale the x/y axis to the full range of a uint16
             s << uint8_t(points.points.size() * 2);
+            s << float(points.yMin);
+            s << float(points.yMax);
             double x, y;
             for (const auto &point : points.points) {
                 // we pack these into uint16_t to ease the unpack on the esp32
@@ -479,15 +483,15 @@ void Frunk::collectSystemState()
     state.appendPoint(2, x, y);
 
     y = m_stats->getCPUPerc();
-    state.setKeyVal(6, "CPU", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.setKeyVal(6, "CPU", u"%1%"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(3, x, y);
 
     y = m_stats->getGPUPerc();
-    state.setKeyVal(7, "GPU", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.setKeyVal(7, "GPU", u"%1%"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(4, x, y);
 
     y = m_stats->getRAMPerc();
-    state.setKeyVal(8, "MEM", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.setKeyVal(8, "MEM", u"%1%"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(5, x, y);
 
     m_statsTimer->setInterval(STATS_INTERVAL);
