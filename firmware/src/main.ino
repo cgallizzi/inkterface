@@ -287,8 +287,8 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
         uint8_t count;
         float minVal;
         float maxVal;
-        uint8_t values[32 * 2]; // 32 (x, y) pairs, 128 bytes
-        // total 138 bytes, smaller than our MTU so should be big enough for max points
+        uint8_t values[32 * 2]; // 32 (x, y) pairs, 64 bytes
+        // total 74 bytes
     } Msg;
 
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
