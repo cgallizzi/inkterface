@@ -288,10 +288,10 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
             s << uint8_t(4);
             s << float(points.yMin);
             s << float(points.yMax);
-            s << uint16_t(0);
-            s << uint16_t(65535 / 2);
-            s << uint16_t(65535);
-            s << uint16_t(65535 / 2);
+            s << uint8_t(0);
+            s << uint8_t(255 / 2);
+            s << uint8_t(255);
+            s << uint8_t(255 / 2);
         } else {
             // usually we just scale the x/y axis to the full range of a uint16
             s << uint8_t(points.points.size() * 2);
@@ -300,10 +300,10 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
             double x, y;
             for (const auto &point : points.points) {
                 // we pack these into uint16_t to ease the unpack on the esp32
-                x = 65535.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
-                y = 65535.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
-                s << uint16_t(x);
-                s << uint16_t(y);
+                x = 255.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
+                y = 255.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+                s << uint8_t(x);
+                s << uint8_t(y);
             }
         }
 

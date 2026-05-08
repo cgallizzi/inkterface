@@ -287,7 +287,7 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
         uint8_t count;
         float minVal;
         float maxVal;
-        uint16_t values[32 * 2]; // 32 (x, y) pairs, 128 bytes
+        uint8_t values[32 * 2]; // 32 (x, y) pairs, 128 bytes
         // total 138 bytes, smaller than our MTU so should be big enough for max points
     } Msg;
 
@@ -309,8 +309,8 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
             STATE.sparks[msg.index].yMin = msg.minVal;
             STATE.sparks[msg.index].yMax = msg.maxVal;
             for (int i = 0; i < msg.count; i += 2) {
-                STATE.sparks[msg.index].emplace_back(msg.values[i] / 65535.0,
-                                                     msg.values[i + 1] / 65535.0);
+                STATE.sparks[msg.index].points.emplace_back(msg.values[i] / 255.0,
+                                                            msg.values[i + 1] / 255.0);
             }
         } else {
             Serial.print("got bad vectors write, size: ");
