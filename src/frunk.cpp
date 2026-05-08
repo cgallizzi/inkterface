@@ -279,6 +279,7 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
         QByteArray ba;
         QDataStream s(&ba, QDataStream::WriteOnly);
         s.setByteOrder(QDataStream::ByteOrder(QSysInfo::ByteOrder));
+        s.setFloatingPointPrecision(QDataStream::SinglePrecision);
 
         s << index;
         if (qFuzzyCompare(points.xMax + 1.0, points.xMin + 1.0) ||
