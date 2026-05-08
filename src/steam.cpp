@@ -5,14 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
-
-#if defined(Q_OS_MACOS)
-const static QString STEAM_PFX = QDir::homePath() + "/Library/Application Support/Steam";
-#elif defined(Q_OS_WIN)
-const static QString STEAM_PFX = "C:/Steam";
-#else
-const static QString STEAM_PFX = QDir::homePath() + "/.steam/steam";
-#endif
+#include <QSettings>
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -25,35 +18,37 @@ Steam::Steam(QObject *parent)
 {
 }
 
+QString Steam::steamDir()
+{
+    QString result;
+#if defined(Q_OS_MACOS)
+    result = QDir::homePath() + u"/Library/Application Support/Steam"_s;
+#elif defined(Q_OS_WIN)
+    QSettings reg(u"HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam"_s,
+                  QSettings::Registry64Format);
+    result = reg.value(u"InstallPath"_s).toString();
+#else
+    result = QDir::homePath() + u"/.steam/steam"_s;
+#endif
+    return result;
+}
+
 QString Steam::currentUser(bool account_name)
 {
-    QByteArray field = account_name ? "AccountName" : "PersonaName";
-    QString s;
-    QByteArray ba;
-    QFile f{STEAM_PFX + "/config/loginusers.vdf"};
-    if (f.exists() && f.open(QFile::ReadOnly)) {
-        while (true) {
-            ba = f.readLine();
-            if (ba.contains(field)) {
-                break;
-            }
+    QString result;
+    QVariantMap loginusers = loadVDF(steamDir() + "/config/loginusers.vdf");
+    for (auto user : loginusers.value("users").toMap()) {
+        if (user.toMap().value("MostRecent").value<QByteArray>() == "1"_ba) {
+            result = user.toMap().value(account_name ? "AccountName" : "PersonaName").toString();
+            break;
         }
-        f.close();
-        s = QString::fromUtf8(ba).trimmed();
-        s = s.sliced(s.indexOf(field) + 12).trimmed();
-        auto len = s.length();
-        s = s.mid(1, len - 2);
     }
-    if (s.contains("hwtestalert")) {
-        s = currentUser(true);
-    }
-    return s;
+    return result;
 }
 
 QString Steam::steamVersion()
 {
-
-    QDir d(STEAM_PFX + "/package");
+    QDir d(steamDir() + "/package");
     QFile f;
     QByteArray ba;
     for (auto entry : d.entryList({{"*.manifest"}})) {
@@ -75,6 +70,143 @@ QString Steam::steamVersion()
     return {};
 }
 
+QVariantMap Steam::appManifest(const QString &appid)
+{
+    QVariantMap result;
+    const QVariantMap libFolders = libraryFolders();
+    for (const auto &folder : libFolders) {
+        const auto &path = folder.toMap().value(u"path"_s);
+        const auto &apps = folder.toMap().value(u"apps"_s);
+        if (apps.toMap().contains(appid)) {
+            result = loadVDF(u"%1/steamapps/appmanifest_%2.acf"_s.arg(path.toString(), appid))
+                         .value(u"AppState"_s)
+                         .toMap();
+            // NOTE: we inject this as it is useful context when interacting
+            //       with an app
+            result[u"librarydir"_s] = path;
+            break;
+        }
+    }
+    return result;
+}
+
+QString Steam::appName(const QString &appid)
+{
+    QVariantMap manifest = appManifest(appid);
+    return manifest.value("name").toString();
+}
+
+QString Steam::appDir(const QString &appid)
+{
+    QString result;
+    QVariantMap manifest = appManifest(appid);
+    const auto libDir = manifest.value(u"librarydir"_s).toString();
+    const auto installDir = manifest.value(u"installdir"_s).toString();
+    if (!installDir.isEmpty()) {
+        result = u"%1/steamapps/common/%2"_s.arg(libDir, installDir);
+    }
+    return result;
+}
+
+QVariantMap Steam::libraryFolders()
+{
+    QVariantMap result = loadVDF(u"%1/config/libraryfolders.vdf"_s.arg(steamDir()));
+    return result.value(u"libraryfolders"_s).toMap();
+}
+
+QVariantMap Steam::loadVDF(const QString &path)
+{
+    QVariantMap result;
+    QFile f(path);
+    if (!f.open(QFile::ReadOnly)) {
+        qWarning() << "Failed to open:" << f.fileName();
+        return result;
+    }
+    const QString error = parseVDF(f.readAll(), result);
+    if (!error.isEmpty()) {
+        qWarning() << "Failed to parse:" << f.fileName() << error;
+    }
+    f.close();
+    return result;
+}
+
+QString Steam::parseVDF(const QByteArray &data, QVariantMap &output)
+{
+    QByteArray token;
+    QList<QVariantMap> stack;
+    QList<QByteArray> tokens;
+    bool inEscape = false;
+    bool inToken = false;
+    bool haveKey = false;
+    for (qsizetype i = 0; i < data.size(); ++i) {
+        const auto c = data[i];
+        if (inEscape) {
+            token.append(c);
+            inEscape = false;
+            continue;
+        } else if (c == '\\') {
+            inEscape = true;
+            continue;
+        }
+        if (inToken && c != '"') {
+            token.append(c);
+            continue;
+        }
+        switch (c) {
+        // handle start/end of token (key or value)
+        case '"': {
+            if (inToken && haveKey) {
+                if (stack.isEmpty()) {
+                    return u"No stack frames to insert kv pair at %1"_s.arg(i);
+                }
+                stack.last().insert(tokens.takeLast(), token);
+                token.clear();
+                haveKey = false;
+            } else if (inToken) {
+                tokens.append(token);
+                token.clear();
+                haveKey = true;
+            }
+            inToken = !inToken;
+            break;
+        }
+        case '{': {
+            if (!haveKey) {
+                return u"Missing key for scope starting at %1"_s.arg(i);
+            }
+            stack.append(QVariantMap());
+            haveKey = false;
+            break;
+        }
+        case '}': {
+            if (tokens.isEmpty()) {
+                return u"Missing key for scope ending at %1"_s.arg(i);
+            }
+            if (stack.isEmpty()) {
+                return u"Missing stack frame for scope ending at %1"_s.arg(i);
+            }
+            if (stack.count() > 1) {
+                QVariantMap frame = stack.takeLast();
+                stack.last().insert(tokens.takeLast(), frame);
+            } else {
+                output.insert(tokens.takeLast(), stack.takeLast());
+            }
+            break;
+        }
+        default: {
+            break;
+        }
+        }
+    }
+    if (!tokens.isEmpty()) {
+        return u"Leftover tokens at EOF: %1"_s.arg(tokens.count());
+    }
+    if (!stack.isEmpty()) {
+        return u"Leftover stack at EOF: %1"_s.arg(stack.count());
+    }
+    return {};
+}
+
 void Steam::watchConsoleLog(bool start)
 {
     if (!start && (m_consoleLog == nullptr || !m_consoleLog->isOpen())) {
@@ -87,7 +219,7 @@ void Steam::watchConsoleLog(bool start)
             m_consoleLog->deleteLater();
         }
         m_consoleLog = new QFile(this);
-        m_consoleLog->setFileName(STEAM_PFX + "/logs/console_log.txt");
+        m_consoleLog->setFileName(steamDir() + "/logs/console_log.txt");
         if (!m_consoleLog->open(QFile::ReadOnly)) {
             qDebug() << "Failed to open console_log.txt!";
             return;
@@ -160,6 +292,19 @@ void Steam::watchConsoleLog(bool start)
 
 void Steam::getAppDetails(QString appid, bool emit_start, bool emit_stop)
 {
+    // try and quickly load app details from manifest before falling back to
+    // loading them from the steam api
+    if (!m_appCache.contains(appid)) {
+        auto name = appName(appid);
+        if (!name.isEmpty()) {
+            qDebug() << "loaded appid" << appid << "name from manifest:" << name;
+            m_appCache[appid] = {
+                .appid = appid,
+                .name = name,
+            };
+        }
+    }
+
     if (m_appCache.contains(appid)) {
         if (emit_start) {
             emit appStarted(m_appCache[appid]);

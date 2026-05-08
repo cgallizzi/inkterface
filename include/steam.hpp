@@ -21,8 +21,17 @@ class Steam : public QObject
   public:
     explicit Steam(QObject *parent = nullptr);
 
+    QString steamDir();
     QString currentUser(bool account_name = false);
     QString steamVersion();
+
+    QVariantMap appManifest(const QString &appid);
+    QString appName(const QString &appid);
+    QString appDir(const QString &appid);
+    QVariantMap libraryFolders();
+
+    QVariantMap loadVDF(const QString &path);
+    QString parseVDF(const QByteArray &data, QVariantMap &output);
 
   public slots:
     void watchConsoleLog(bool start = false);
