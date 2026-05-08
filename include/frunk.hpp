@@ -55,7 +55,7 @@ class Frunk : public QObject
         double yMin;
 
         Points()
-            : size(20)
+            : size(30)
             // WARN: our max size is 32 points to keep within a single moderate
             //       MTU (128 bytes), can be adjusted with a FW change if necessary
             , xMax(std::numeric_limits<double>::min())

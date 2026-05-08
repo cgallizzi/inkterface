@@ -29,7 +29,7 @@
 #define RECON_INTERVAL 2000
 #define STATS_INTERVAL 2000
 #define MANGO_INTERVAL 15000
-#define SEND_INTERVAL 60000
+#define SEND_INTERVAL 30000
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -50,39 +50,20 @@ Frunk::Frunk(const QString &name, QObject *parent)
           // most recent achievment maybe
       })
     , VectorSources({
-          u"FAN"_s,       // hwmon steamdeck_hwmon, fan1_input (rpm)
-          u"GPU SCLK"_s,  // hwmon amdgpu, freq1_input (Hz) (gpu clock)
-          u"GPU MCLK"_s,  // hwmon amdgpu, freq2_input (Hz) (mem clock)
-          u"GPU V"_s,     // hwmon amdgpu, in0_input (millivolts)
-          u"GPU W"_s,     // hwmon amdgpu, power1_average (microwatts)
-          u"GPU"_s,       // hwmon amdgpu, temp2_input (millidegrees C)
-          u"GPU MEM"_s,   // hwmon amdgpu, temp3_input
-          u"GPU %"_s,     // hwmon amdgpu/device, gpu_busy_percent
-          u"GPU MEM %"_s, // hwmon amdgpu/device, mem_busy_percent
-
-          u"SSD"_s, // hwmon nvme, temp1_input (millidegrees C)
-
-          u"CPU"_s,   // hwmon k10temp, temp1_input (millidegrees C)
-          u"CPU %"_s, // /proc/stat
-                      // sum these columns to get bt1 (first busy time)
-                      // $2 / user time (0)
-                      // $3 / nice time (1)
-                      // $4 / system time (2)
-                      // $7 / irq time (5)
-                      // $8 / softirq time (6)
-                      //
-                      // then take bt1 and add this column for tt1 (first total time)
-                      // $5 / idle time (3)
-                      //
-                      // wait a beat, the interval is unimportant, then grab
-                      // the same values again as bt2 and tt2
-                      // then (bt2 - bt1) / (tt2 - tt1) * 100 is the busy percent
-
-          u"RAM %"_s, // /proc/meminfo, (MemTotal - MemAvailable) / MemTotal * 100
-                      // should always be in kB (KiB) but since we're just grabbing
-                      // percentage we don't care about the units
-
-          u"UPTIME"_s, // /proc/uptime, first column in seconds
+          u"FAN RPM"_s,   // SysStats::getFanRPM()
+          u"GPU SCLK"_s,  // SysStats::getGPUSCLK()
+          u"GPU MCLK"_s,  // SysStats::getGPUMCLK()
+          u"GPU V"_s,     // SysStats::getGPUV()
+          u"GPU W"_s,     // SysStats::getGPUW()
+          u"GPU TEMP"_s,  // SysStats::getGPUTemp()
+          u"GPU MEM"_s,   // SysStats::getGPUMemTemp()
+          u"GPU %"_s,     // SysStats::getGPUPerc()
+          u"GPU MEM %"_s, // SysStats::getGPUMemPerc()
+          u"SSD TEMP"_s,  // SysStats::getSSDTemp()
+          u"CPU TEMP"_s,  // SysStats::getCPUTemp()
+          u"CPU %"_s,     // SysStats::getCPUPerc()
+          u"MEM %"_s,     // SysStats::getRAMPerc()
+          u"UPTIME"_s,    // SysStats::getUptime()
       })
     /* other ideas for things to display:
      *  active download progress as discrete bar
@@ -506,7 +487,7 @@ void Frunk::collectSystemState()
     state.appendPoint(4, x, y);
 
     y = m_stats->getRAMPerc();
-    state.setKeyVal(8, "RAM", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
+    state.setKeyVal(8, "MEM", u"%1 %"_s.arg(QString::number(y, 'f', 0)));
     state.appendPoint(5, x, y);
 
     m_statsTimer->setInterval(STATS_INTERVAL);
