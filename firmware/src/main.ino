@@ -114,7 +114,26 @@ struct Point {
     {
     }
 };
-typedef std::vector<Point> Points;
+
+struct Points {
+    float yMin;
+    float yMax;
+    std::vector<Point> points;
+
+    Points()
+        : yMin(0)
+        , yMax(0)
+        , points()
+    {
+    }
+
+    void clear()
+    {
+        yMin = 0;
+        yMax = 0;
+        points.clear();
+    }
+};
 
 struct KeyVal {
     std::string key;
@@ -287,6 +306,8 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
             Serial.print(", max ");
             Serial.println(msg.maxVal);
             STATE.sparks[msg.index].clear();
+            STATE.sparks[msg.index].yMin = msg.minVal;
+            STATE.sparks[msg.index].yMax = msg.maxVal;
             for (int i = 0; i < msg.count; i += 2) {
                 STATE.sparks[msg.index].emplace_back(msg.values[i] / 65535.0,
                                                      msg.values[i + 1] / 65535.0);
@@ -443,10 +464,10 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
     const int16_t hpad = 8;
     const int16_t vpad = 6;
     const int16_t title_h = 26;
-    const int16_t graph_h = (h - title_h) - 20;
+    const int16_t graph_h = (h - title_h) - 32;
     const int16_t graph_w = w - 20;
     const int16_t graph_x = x + 10;
-    const int16_t graph_y = (y + h) - 10;
+    const int16_t graph_y = (y + h) - 16;
 
     if (!title.empty()) {
         MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
@@ -455,9 +476,19 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
 
-        if (points.size() >= 2) {
+        std::stringstream maxstrm;
+        maxstrm << std::fixed << std::setprecision(0) << points.yMax;
+        auto maxstr = maxstrm.str();
+        drawText(maxstr.c_str(), x + hpad, y + title_h + vpad);
+
+        std::stringstream minstrm;
+        minstrm << std::fixed << std::setprecision(0) << points.yMin;
+        auto minstr = minstrm.str();
+        drawText(minstr.c_str(), x + hpad, y + h - (vpad + 7));
+
+        if (points.points.size() >= 2) {
             int16_t s_x = 0.0, s_y = 0.0, e_x = 0.0, e_y = 0.0;
-            for (auto p = points.cbegin(); p != points.cend() - 1; ++p) {
+            for (auto p = points.points.cbegin(); p != points.points.cend() - 1; ++p) {
                 s_x = graph_x + (p->x * graph_w);
                 e_x = graph_x + ((p + 1)->x * graph_w);
                 s_y = graph_y + (p->y * graph_h * -1.0);
