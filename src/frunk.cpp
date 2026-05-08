@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iterator>
 
 #include <QByteArray>
@@ -301,7 +302,7 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
             for (const auto &point : points.points) {
                 // we pack these into uint16_t to ease the unpack on the esp32
                 x = 255.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
-                y = 255.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+                y = 255.0 * (std::round(point.y - points.yMin) / (points.yMax - points.yMin));
                 s << uint8_t(x);
                 s << uint8_t(y);
             }
