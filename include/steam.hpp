@@ -24,11 +24,13 @@ class Steam : public QObject
     QString steamDir();
     QString currentUser(bool account_name = false);
     QString steamVersion();
+    QVariantMap libraryFolders();
+
+    int installedAppCount();
 
     QVariantMap appManifest(const QString &appid);
     QString appName(const QString &appid);
     QString appDir(const QString &appid);
-    QVariantMap libraryFolders();
 
     QVariantMap loadVDF(const QString &path);
     QString parseVDF(const QByteArray &data, QVariantMap &output);

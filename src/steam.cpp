@@ -90,6 +90,16 @@ QVariantMap Steam::appManifest(const QString &appid)
     return result;
 }
 
+int Steam::installedAppCount()
+{
+    int result = 0;
+    const auto libFolders = libraryFolders();
+    for (const auto &folder : libFolders) {
+        result += folder.toMap().value(u"apps"_s).toMap().size();
+    }
+    return result;
+}
+
 QString Steam::appName(const QString &appid)
 {
     QVariantMap manifest = appManifest(appid);
