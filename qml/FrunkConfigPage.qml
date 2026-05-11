@@ -51,6 +51,30 @@ Item {
         }
     }
 
+    ColumnLayout {
+        id: titleLineLayout
+        anchors.left: topRow.left
+        anchors.right: topRow.right
+        anchors.top: topRow.bottom
+        anchors.topMargin: 10
+
+        VLabel {
+            text: frunkState.topLine
+            font.pixelSize: 32
+            font.bold: true
+        }
+
+        VLabel {
+            text: frunkState.midLine
+            font.pixelSize: 24
+        }
+
+        VLabel {
+            text: frunkState.botLine
+            font.pixelSize: 24
+        }
+    }
+
     GridLayout {
         id: readoutGrid
 
@@ -58,80 +82,57 @@ Item {
         anchors.bottomMargin: 10
         anchors.left: topRow.left
         anchors.right: topRow.right
-        anchors.top: topRow.bottom
+        anchors.top: titleLineLayout.bottom
         anchors.topMargin: 10
         columnSpacing: 10
         columns: 3
         rowSpacing: 10
 
-        VBoxedReadout {
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
+        Repeater {
+            model: frunkState.fields.filter((x) => x.depth <= 0)
 
-            MouseArea {
-                anchors.fill: parent
+            delegate: VBoxedReadout {
+                Layout.fillWidth: true
+                title: modelData.key || "--"
+                value: modelData.val || "--"
 
-                onClicked: control.showOverlay = !control.showOverlay
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: overlayLoader.setSource("FrunkFieldOverlay.qml", {"field": modelData})
+                }
             }
         }
 
-        VBoxedReadout {
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
+        Repeater {
+            model: frunkState.fields.filter((x) => x.depth > 0)
 
-        VBoxedReadout {
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
+            delegate: VSparkline {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                title: modelData.key || "--"
+                value: modelData.val || "--"
+                maxPoints: modelData.depth
 
-        VSparkline {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
+                Component.onCompleted: setPoints(modelData.points)
 
-        VSparkline {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
+                Connections {
+                    target: modelData
 
-        VSparkline {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
+                    function onPointsChanged() {
+                        setPoints(modelData.points)
+                    }
+                }
 
-        VSparkline {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
-
-        VSparkline {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
-        }
-
-        VSparkline {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            title: "--"
-            value: "--"
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: overlayLoader.setSource("FrunkFieldOverlay.qml", {"field": modelData})
+                }
+            }
         }
     }
 
     VLabel {
+        visible: false
         anchors.centerIn: readoutGrid
         font.pixelSize: readoutGrid.height * 0.2
         rotation: 30
@@ -193,44 +194,16 @@ Item {
         }
     }
 
-    property bool showOverlay: false
-    Rectangle {
-        visible: control.showOverlay
-        opacity: 0.8
-        color: "black"
+    Loader {
+        id: overlayLoader
         anchors.fill: parent
     }
 
-    VRect {
-        visible: control.showOverlay
-        anchors.centerIn: parent
-        height: control.height * 0.8
-        width: control.width * 0.75
+    Connections {
+        target: overlayLoader.item
 
-        ListView {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 10
-            model: frunkState.collectors
-
-            delegate: VBevelRect {
-                width: ListView.view.width
-                height: 100
-
-                VLabel {
-                    text: modelData.displayName
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.margins: 10
-                }
-
-                VLabel {
-                    text: modelData.description
-                    anchors.left: parent.left
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 10
-                }
-            }
+        function onFinished() {
+            overlayLoader.sourceComponent = null
         }
     }
 }
