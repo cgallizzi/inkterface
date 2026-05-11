@@ -15,6 +15,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QSettings>
 #include <QTimer>
 
 #include "config.h"
@@ -76,6 +77,8 @@ int runUi(int argc, char *argv[])
     app.setOrganizationDomain(ORG_DOMAIN);
     app.setApplicationVersion(PROJECT_GITREV);
     app.setWindowIcon(QIcon(u":/%1/resources/icon.png"_s.arg(QML_URI)));
+    QSettings settings;
+    qDebug() << "Settings stored in:" << settings.fileName();
 
     QQuickStyle::setStyle("Basic");
     if (!registerFonts()) {
