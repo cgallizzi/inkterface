@@ -131,14 +131,6 @@ Item {
         }
     }
 
-    VLabel {
-        visible: false
-        anchors.centerIn: readoutGrid
-        font.pixelSize: readoutGrid.height * 0.2
-        rotation: 30
-        text: "COMING SOON"
-    }
-
     VBevelRect {
         id: serviceRect
 
