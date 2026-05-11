@@ -110,6 +110,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 title: modelData.key || "--"
+                autoValue: false // don't use last point, we will set manually
                 value: modelData.val || "--"
                 maxPoints: modelData.depth
 
