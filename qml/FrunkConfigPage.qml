@@ -68,6 +68,12 @@ Item {
             Layout.fillWidth: true
             title: "--"
             value: "--"
+
+            MouseArea {
+                anchors.fill: parent
+
+                onClicked: control.showOverlay = !control.showOverlay
+            }
         }
 
         VBoxedReadout {
@@ -187,6 +193,43 @@ Item {
         }
     }
 
+    property bool showOverlay: false
+    Rectangle {
+        visible: control.showOverlay
+        opacity: 0.8
+        color: "black"
+        anchors.fill: parent
+    }
+
+    VRect {
+        visible: control.showOverlay
+        anchors.centerIn: parent
+        height: control.height * 0.8
+        width: control.width * 0.75
+
+        ListView {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 10
+            model: frunkState.collectors
+
+            delegate: VBevelRect {
+                width: ListView.view.width
+                height: 100
+
+                VLabel {
+                    text: modelData.displayName
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.margins: 10
+                }
+
+                VLabel {
+                    text: modelData.description
+                    anchors.left: parent.left
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 10
+                }
             }
         }
     }

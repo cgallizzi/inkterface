@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "frunk-finder.hpp"
+#include "frunk-state.hpp"
 #include "frunk.hpp"
 #include "loghandler.hpp"
 #include "svcmgr.hpp"
@@ -96,6 +97,9 @@ int runUi(int argc, char *argv[])
     SvcMgr *svcMgr = new SvcMgr(&app);
     ctx->setContextProperty("svcMgr", svcMgr);
 
+    FrunkState *fs = new FrunkState(&app);
+    ctx->setContextProperty("frunkState", fs);
+
     const QUrl url(u"qrc:/%1/qml/main.qml"_s.arg(QML_URI));
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated, &app,
@@ -169,7 +173,7 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
     return 0;
 }
 
-int main(int argc, char *argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
     LogHandler::install("mango-frunk.log", 50);
 
