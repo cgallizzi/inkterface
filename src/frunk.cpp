@@ -18,13 +18,20 @@
 
 #include "mango.hpp"
 
-#define SERVICE_UUID QUuid{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
-#define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
-#define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
-#define BOTLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
-#define KEYVAL_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871903"}
-#define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
-#define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
+#define SERVICE_UUID                                                                               \
+    QUuid { "95c7b479-8e84-4ce7-a121-faf74bf48c84" }
+#define TOPLINE_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871900" }
+#define MIDLINE_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871901" }
+#define BOTLINE_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871902" }
+#define KEYVAL_UUID                                                                                \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871903" }
+#define VECTOR_UUID                                                                                \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871904" }
+#define FLUSH_UUID                                                                                 \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
 
 #define RSSI_LIMIT -80
 #define RECON_INTERVAL 2000
@@ -44,11 +51,9 @@ inline int64_t NOW_MS()
 Frunk::Frunk(const QString &name, QObject *parent)
     : QObject(parent)
     , ScalarSources({
-          u"OS"_s,
-          u"BIOS"_s,
-          u"STEAM"_s,
-          // # of installed games
-          // most recent achievment maybe
+          u"OS"_s,    // SysStats::getOSVersion()
+          u"BIOS"_s,  // SysStats::getBIOSVersion()
+          u"STEAM"_s, // Steam::steamVersion()
       })
     , VectorSources({
           u"FAN RPM"_s,   // SysStats::getFanRPM()
@@ -65,6 +70,7 @@ Frunk::Frunk(const QString &name, QObject *parent)
           u"CPU %"_s,     // SysStats::getCPUPerc()
           u"MEM %"_s,     // SysStats::getRAMPerc()
           u"UPTIME"_s,    // SysStats::getUptime()
+          u"APP COUNT"_s, // Steam::installedAppCount()
       })
     /* other ideas for things to display:
      *  active download progress as discrete bar
@@ -467,7 +473,8 @@ void Frunk::collectSystemState()
 
     state.setKeyVal(0, "OS", m_stats->getOSVersion());
     state.setKeyVal(1, "BIOS", m_stats->getBIOSVersion());
-    state.setKeyVal(2, "STEAM", m_steam->steamVersion());
+    // state.setKeyVal(2, "STEAM", m_steam->steamVersion());
+    state.setKeyVal(2, "APPS", QString::number(m_steam->installedAppCount()));
 
     double x = NOW_MS();
     double y = 0;
