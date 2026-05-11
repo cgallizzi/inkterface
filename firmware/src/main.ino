@@ -25,6 +25,10 @@
 NimBLEServer *BLE_SERVER = nullptr;
 std::string BLE_NAME = "FRUNK";
 
+bool INVERTED = false;
+#define FG_COLOR (INVERTED ? EPD_WHITE : EPD_BLACK)
+#define BG_COLOR (INVERTED ? EPD_BLACK : EPD_WHITE)
+
 class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 {
   public:
@@ -369,8 +373,8 @@ void setup()
     STATE.reset();
     MF_DISPLAY.begin(THINKINK_MONO);
     MF_DISPLAY.clearBuffer();
-    MF_DISPLAY.fillScreen(EPD_WHITE);
-    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, EPD_BLACK);
+    MF_DISPLAY.fillScreen(BG_COLOR);
+    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, FG_COLOR);
     MF_DISPLAY.display();
     DISP_DEBOUNCE = 10;
 
@@ -428,6 +432,7 @@ void loop()
     } else if (DISP_DEBOUNCE > 0) {
         DISP_DEBOUNCE = 0;
         MF_DISPLAY.clearBuffer();
+        MF_DISPLAY.fillScreen(BG_COLOR);
         drawStatic();
         MF_DISPLAY.display();
     }
@@ -437,22 +442,22 @@ void loop()
 }
 
 void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
-              const uint8_t &size = 1, const uint16_t &color = EPD_BLACK, const bool &wrap = false)
+              const uint8_t &size = 1, const bool &wrap = false)
 {
     if (x >= 0 && y >= 0) {
         MF_DISPLAY.setCursor(x, y);
     }
     MF_DISPLAY.setTextSize(size);
-    MF_DISPLAY.setTextColor(color);
+    MF_DISPLAY.setTextColor(FG_COLOR);
     MF_DISPLAY.setTextWrap(wrap);
     MF_DISPLAY.print(text);
 }
 
 void drawLogo(int16_t &x, const int16_t &y = 0)
 {
-    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 3, EPD_BLACK);
-    MF_DISPLAY.fillCircle(x + 50, y + 50, 31, EPD_WHITE);
-    MF_DISPLAY.fillCircle(x + 50, y + 50, 23, EPD_BLACK);
+    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 3, FG_COLOR);
+    MF_DISPLAY.fillCircle(x + 50, y + 50, 31, BG_COLOR);
+    MF_DISPLAY.fillCircle(x + 50, y + 50, 23, FG_COLOR);
     x += 101;
 }
 
@@ -470,9 +475,9 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
     const int16_t graph_y = (y + h) - 16;
 
     if (!title.empty()) {
-        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
-        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, EPD_BLACK);
-        MF_DISPLAY.fillRect(x, y + title_h, w, 1, EPD_BLACK);
+        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, FG_COLOR);
+        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, FG_COLOR);
+        MF_DISPLAY.fillRect(x, y + title_h, w, 1, FG_COLOR);
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
 
@@ -493,11 +498,11 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
                 e_x = graph_x + ((p + 1)->x * graph_w);
                 s_y = graph_y + (p->y * graph_h * -1.0);
                 e_y = graph_y + ((p + 1)->y * graph_h * -1.0);
-                MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x, s_y - 1, e_x, e_y - 1, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x, s_y + 1, e_x, e_y + 1, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x - 1, s_y, e_x - 1, e_y, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x + 1, s_y, e_x + 1, e_y, EPD_BLACK);
+                MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x, s_y - 1, e_x, e_y - 1, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x, s_y + 1, e_x, e_y + 1, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x - 1, s_y, e_x - 1, e_y, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x + 1, s_y, e_x + 1, e_y, FG_COLOR);
             }
         }
     }
@@ -514,8 +519,8 @@ void drawDiscreteBox(int16_t &x, const int16_t &y, const std::string &title,
     const int16_t vpad = 6;
 
     if (!title.empty()) {
-        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
-        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, EPD_BLACK);
+        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, FG_COLOR);
+        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, FG_COLOR);
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
     }
