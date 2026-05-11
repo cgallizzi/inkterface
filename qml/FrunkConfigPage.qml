@@ -15,11 +15,11 @@ Item {
 
     Settings {
         id: settings
-
     }
 
     RowLayout {
         id: topRow
+
         anchors.left: parent.left
         anchors.margins: 10
         anchors.right: parent.right
@@ -28,10 +28,11 @@ Item {
 
         VLabel {
             id: nameLabel
+
+            Layout.fillWidth: true
+            elide: Label.ElideRight
             font.pixelSize: 36
             text: `${frunk.name}, ${frunk.rssi}, ${frunk.ifaceVersion}`
-            elide: Label.ElideRight
-            Layout.fillWidth: true
         }
 
         VConfirmButton {
@@ -52,134 +53,140 @@ Item {
 
     GridLayout {
         id: readoutGrid
-        columns: 3
-        columnSpacing: 10
-        rowSpacing: 10
-        anchors.top: topRow.bottom
+
+        anchors.bottom: serviceRect.top
+        anchors.bottomMargin: 10
         anchors.left: topRow.left
         anchors.right: topRow.right
-        anchors.bottom: serviceRect.top
+        anchors.top: topRow.bottom
         anchors.topMargin: 10
-        anchors.bottomMargin: 10
+        columnSpacing: 10
+        columns: 3
+        rowSpacing: 10
 
         VBoxedReadout {
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-        }
-
-        VBoxedReadout {
-            title: "--"
-            value: "--"
-            Layout.fillWidth: true
         }
 
         VBoxedReadout {
+            Layout.fillWidth: true
             title: "--"
             value: "--"
+        }
+
+        VBoxedReadout {
             Layout.fillWidth: true
+            title: "--"
+            value: "--"
         }
 
         VSparkline {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
 
         VSparkline {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
 
         VSparkline {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
 
         VSparkline {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
 
         VSparkline {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
 
         VSparkline {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
             title: "--"
             value: "--"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
     }
 
     VLabel {
-        text: "COMING SOON"
+        anchors.centerIn: readoutGrid
         font.pixelSize: readoutGrid.height * 0.2
         rotation: 30
-        anchors.centerIn: readoutGrid
+        text: "COMING SOON"
     }
 
     VBevelRect {
         id: serviceRect
-        style: svcMgr.isRunning ? 2 : 1
-        shape: 1
-        height: 72
+
         anchors.bottom: parent.bottom
         anchors.left: readoutGrid.left
-        anchors.right: parent.right
         anchors.margins: 10
+        anchors.right: parent.right
         anchors.rightMargin: -(lineWidth + 1)
+        height: 72
+        shape: 1
+        style: svcMgr.isRunning ? 2 : 1
 
         RowLayout {
-            spacing: 10
-            anchors.top: parent.top
             anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.topMargin: 10
             anchors.leftMargin: 15
+            anchors.right: parent.right
             anchors.rightMargin: Math.abs(parent.anchors.rightMargin) + 10
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            spacing: 10
 
             VLabel {
-                text: "Service:"
                 font.bold: true
                 font.italic: true
+                text: "Service:"
             }
 
             VLabel {
+                Layout.fillWidth: true
+                elide: Label.ElideRight
                 text: {
                     if (svcMgr.isRunning) {
                         return "Running";
                     } else if (svcMgr.isInstalled) {
                         return "Installed, Not Running";
                     }
-                    return "Not Installed"
+                    return "Not Installed";
                 }
-                elide: Label.ElideRight
-                Layout.fillWidth: true
-            }
-
-            VButton {
-                text:  svcMgr.isInstalled ? "Uninstall" : "Install"
-
-                onClicked: svcMgr.isInstalled ? svcMgr.uninstallService() : svcMgr.installService()
             }
 
             VButton {
                 enabled: svcMgr.isInstalled
-                text:  svcMgr.isRunning ? "Stop" : "Start"
+                text: svcMgr.isRunning ? "Restart" : "Start"
 
-                onClicked: svcMgr.isRunning ? svcMgr.stopService() : svcMgr.startService()
+                onClicked: svcMgr.isRunning ? svcMgr.restartService() : svcMgr.startService()
+            }
+
+            VButton {
+                text: svcMgr.isInstalled ? "Uninstall" : "Install"
+
+                onClicked: svcMgr.isInstalled ? svcMgr.uninstallService() : svcMgr.installService()
+            }
+        }
+    }
+
             }
         }
     }

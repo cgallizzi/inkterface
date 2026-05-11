@@ -25,6 +25,11 @@ class SvcMgr : public QObject
     void uninstallService();
     void startService();
     void stopService();
+    void restartService()
+    {
+        stopService();
+        startService();
+    }
     void check();
 
   private:
