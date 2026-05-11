@@ -41,6 +41,31 @@ double SysStats::getCPUPerc()
     return result;
 }
 
+double SysStats::getCPUCLK()
+{
+    const static QByteArray tag = "cpu MHz"_ba;
+    double cores = 0;
+    double sum = 0;
+    QFile f("/proc/cpuinfo");
+    if (!f.exists() || !f.open(QFile::ReadOnly)) {
+        return 0.0;
+    }
+    QByteArray line;
+    do {
+        line = f.readLine();
+        if (line.startsWith(tag)) {
+            ++cores;
+            line = line.mid(line.indexOf(':') + 2, line.size() - line.indexOf(':'));
+            sum += line.toDouble();
+        }
+    } while (!line.isEmpty());
+    f.close();
+    if (cores <= 0) {
+        return 0.0;
+    }
+    return (sum / cores) / 1000;
+}
+
 double SysStats::getRAMPerc()
 {
     const static QByteArray memTotalTag = "MemTotal:"_ba;

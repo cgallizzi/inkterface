@@ -51,6 +51,8 @@ class SysStats : public QObject
     double getCPUTemp() { return readHwmonNode("k10temp", "temp1_input", 0.001); }
     // in percentage (0-100)
     double getCPUPerc();
+    // average of all cores in GHz
+    double getCPUCLK();
     // in percentage (0-100)
     double getRAMPerc();
     // in seconds
