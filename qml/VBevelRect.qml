@@ -20,31 +20,31 @@ Item {
     readonly property var shapes: {
         // all sides
         0: [ Qt.point(bevelSize, 0) // top left
-           , Qt.point(control.width - bevelSize, 0) // top right
-           , Qt.point(control.width, bevelSize) // right top
-           , Qt.point(control.width, control.height - bevelSize) // right bottom
-           , Qt.point(control.width - bevelSize, control.height) // bottom right
-           , Qt.point(bevelSize, control.height) // bottom left
-           , Qt.point(0, control.height - bevelSize) // left bottom
+           , Qt.point(shape.width - bevelSize, 0) // top right
+           , Qt.point(shape.width, bevelSize) // right top
+           , Qt.point(shape.width, shape.height - bevelSize) // right bottom
+           , Qt.point(shape.width - bevelSize, shape.height) // bottom right
+           , Qt.point(bevelSize, shape.height) // bottom left
+           , Qt.point(0, shape.height - bevelSize) // left bottom
            , Qt.point(0, bevelSize) // left top
            , Qt.point(bevelSize, 0) // top left (to close shape)
            ],
         // left side
         1: [ Qt.point(bevelSize, 0) // top left
-           , Qt.point(control.width, 0) // top right
-           , Qt.point(control.width, control.height) // bottom right
-           , Qt.point(bevelSize, control.height) // bottom left
-           , Qt.point(0, control.height - bevelSize) // left bottom
+           , Qt.point(shape.width, 0) // top right
+           , Qt.point(shape.width, shape.height) // bottom right
+           , Qt.point(bevelSize, shape.height) // bottom left
+           , Qt.point(0, shape.height - bevelSize) // left bottom
            , Qt.point(0, bevelSize) // left top
            , Qt.point(bevelSize, 0) // top left (to close shape)
            ],
         // right side
         2: [ Qt.point(0, 0) // top left
-           , Qt.point(control.width - bevelSize, 0) // top right
-           , Qt.point(control.width, bevelSize) // right top
-           , Qt.point(control.width, control.height - bevelSize) // right bottom
-           , Qt.point(control.width - bevelSize, control.height) // bottom right
-           , Qt.point(0, control.height) // bottom left
+           , Qt.point(shape.width - bevelSize, 0) // top right
+           , Qt.point(shape.width, bevelSize) // right top
+           , Qt.point(shape.width, shape.height - bevelSize) // right bottom
+           , Qt.point(shape.width - bevelSize, shape.height) // bottom right
+           , Qt.point(0, shape.height) // bottom left
            , Qt.point(0, 0) // top left (to close shape)
            ],
     }
@@ -53,6 +53,7 @@ Item {
         id: shape
 
         anchors.fill: parent
+        anchors.margins: control.lineWidth / 2
 
         ShapePath {
             id: path

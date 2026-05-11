@@ -145,7 +145,7 @@ Item {
         anchors.left: readoutGrid.left
         anchors.margins: 10
         anchors.right: parent.right
-        anchors.rightMargin: -(lineWidth + 1)
+        anchors.rightMargin: -(lineWidth * 2)
         height: 72
         shape: 1
         style: svcMgr.isRunning ? 2 : 1
