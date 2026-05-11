@@ -78,7 +78,9 @@ Item {
                 text: "Select"
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.top
-                anchors.margins: 10
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottomMargin: 10
 
                 onClicked: control.selectFrunk()
             }
