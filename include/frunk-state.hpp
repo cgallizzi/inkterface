@@ -164,10 +164,11 @@ class FrunkField : public QObject
         m_val = v;
         if (changed) {
             emit readoutChanged();
-            if (m_depth && m_collector->hasDbl()) {
-                append(x, m_collector->getDbl());
-                emit pointsChanged();
-            }
+        }
+        if (m_depth && m_collector->hasDbl()) {
+            changed = true; // when we collect a new point it's always a change
+            append(x, m_collector->getDbl());
+            emit pointsChanged();
         }
         return changed;
     }
