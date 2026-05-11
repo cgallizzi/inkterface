@@ -330,8 +330,11 @@ void Steam::getAppDetails(QString appid, bool emit_start, bool emit_stop)
 
     if (m_appCache.contains(appid)) {
         if (emit_start) {
+            m_runningApp.appid = appid;
+            m_runningApp.name = m_appCache[appid].name;
             emit appStarted(m_appCache[appid]);
         } else if (emit_stop) {
+            m_runningApp.clear();
             emit appStopped(m_appCache[appid]);
         } else {
             emit appDetails(m_appCache[appid]);
@@ -367,8 +370,11 @@ void Steam::appDetailsReply(QString appid, bool emit_start, bool emit_stop)
         .name = response.value("data").toObject().value("name").toString(),
     };
     if (emit_start) {
+        m_runningApp.appid = appid;
+        m_runningApp.name = m_appCache[appid].name;
         emit appStarted(m_appCache[appid]);
     } else if (emit_stop) {
+        m_runningApp.clear();
         emit appStopped(m_appCache[appid]);
     } else {
         emit appDetails(m_appCache[appid]);
