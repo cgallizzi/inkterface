@@ -15,6 +15,7 @@
 #include "steam.hpp"
 #include "sysstats.hpp"
 
+#define FRUNK_UPDATE_INTERVAL 2000
 #define FRUNK_POINT_DEPTH 20
 #define FRUNK_READOUT_COUNT 3
 #define FRUNK_SPARK_COUNT 6
@@ -313,11 +314,11 @@ class FrunkState : public QObject
          *      could be identified later or added by community
          */
 
+        connect(m_steam, &steam::Steam::appStarted, this, &FrunkState::onAppStarted);
+        connect(m_steam, &steam::Steam::appStopped, this, &FrunkState::onAppStopped);
+        m_steam->watchConsoleLog(true);
+
         // TODO: allow configuring different numbers/layouts of fields
-        // TODO: allow re-linking collectors to fields if collector set changes
-        //       (to handle collectors added later in runtime)
-        QSettings settings;
-        QString collectorName;
         FrunkField *field = nullptr;
         for (int i = 0; i < FRUNK_FIELD_COUNT; ++i) {
             if (i < FRUNK_READOUT_COUNT) {
@@ -325,58 +326,10 @@ class FrunkState : public QObject
             } else {
                 field = new FrunkField(i, FRUNK_POINT_DEPTH, this);
             }
-            // TODO: this is lame, but i want the value in the settings file to
-            //       be human readable, probably we should just enforce unique
-            //       display names when registering collectors and leave it at that.
-            collectorName = settings.value(u"field%1Collector"_s.arg(i)).toString();
-            if (collectorName.isEmpty()) {
-                switch (i) {
-                case 0:
-                    collectorName = u"OS Version"_s;
-                    break;
-                case 1:
-                    collectorName = u"BIOS Version"_s;
-                    break;
-                case 2:
-                    collectorName = u"Steam Version"_s;
-                    break;
-                case 3:
-                    collectorName = u"CPU Temperature"_s;
-                    break;
-                case 4:
-                    collectorName = u"GPU Temperature"_s;
-                    break;
-                case 5:
-                    collectorName = u"Fan RPM"_s;
-                    break;
-                case 6:
-                    collectorName = u"CPU"_s;
-                    break;
-                case 7:
-                    collectorName = u"GPU"_s;
-                    break;
-                case 8:
-                    collectorName = u"Memory"_s;
-                    break;
-                }
-            }
-            if (!collectorName.isEmpty()) {
-                for (auto collector : std::as_const(m_collectors)) {
-                    if (collector->displayName() == collectorName) {
-                        field->setCollector(collector);
-                        break;
-                    }
-                }
-            }
             m_fields.append(field);
         }
-
-        connect(m_steam, &steam::Steam::appStarted, this, &FrunkState::onAppStarted);
-        connect(m_steam, &steam::Steam::appStopped, this, &FrunkState::onAppStopped);
-        m_steam->watchConsoleLog(true);
-
         connect(m_updateTimer, &QTimer::timeout, this, &FrunkState::updateState);
-        m_updateTimer->setInterval(2000);
+        m_updateTimer->setInterval(FRUNK_UPDATE_INTERVAL);
         m_updateTimer->setSingleShot(false);
         updateState();
         m_updateTimer->start();
@@ -392,15 +345,19 @@ class FrunkState : public QObject
     void registerCollector(const QString &displayName, const QString &frunkName,
                            const QString &description, DblGetter getter, Formatter fmt = nullptr)
     {
-        m_collectors.append(
-            new FrunkCollector(displayName, frunkName, description, getter, nullptr, fmt, this));
+        auto collector =
+            new FrunkCollector(displayName, frunkName, description, getter, nullptr, fmt, this);
+        m_collectors.append(collector);
+        m_collectorMap[displayName] = collector;
         emit collectorsChanged();
     }
     void registerCollector(const QString &displayName, const QString &frunkName,
                            const QString &description, StrGetter getter)
     {
-        m_collectors.append(new FrunkCollector(displayName, frunkName, description, nullptr, getter,
-                                               nullptr, this));
+        auto collector =
+            new FrunkCollector(displayName, frunkName, description, nullptr, getter, nullptr, this);
+        m_collectors.append(collector);
+        m_collectorMap[displayName] = collector;
         emit collectorsChanged();
     }
 
@@ -414,7 +371,7 @@ class FrunkState : public QObject
     void stop() { m_updateTimer->stop(); }
     void updateState()
     {
-        bool changed = false;
+        bool changed = linkFieldCollectors();
 
         // top line is hostname from machine
         // TODO: allow configuring this
@@ -466,6 +423,61 @@ class FrunkState : public QObject
     QString m_botLine;
     QList<FrunkField *> m_fields;
     QList<FrunkCollector *> m_collectors;
+    QMap<QString, QPointer<FrunkCollector>> m_collectorMap;
+
+    // TODO: this can probably be public or get triggered if when a new collector
+    //       is registered
+    bool linkFieldCollectors()
+    {
+        bool changed = false;
+        QSettings settings;
+        QString collectorName;
+        FrunkField *field = nullptr;
+        for (int i = 0; i < m_fields.size(); ++i) {
+            field = m_fields[i];
+            // TODO: this is lame, but i want the value in the settings file to
+            //       be human readable, probably we should just enforce unique
+            //       display names when registering collectors and leave it at that.
+            collectorName = settings.value(u"field%1Collector"_s.arg(i)).toString();
+            // NOTE: these are just arbitrary defaults
+            if (collectorName.isEmpty()) {
+                switch (i) {
+                case 0:
+                    collectorName = u"OS Version"_s;
+                    break;
+                case 1:
+                    collectorName = u"BIOS Version"_s;
+                    break;
+                case 2:
+                    collectorName = u"Steam Version"_s;
+                    break;
+                case 3:
+                    collectorName = u"CPU Temperature"_s;
+                    break;
+                case 4:
+                    collectorName = u"GPU Temperature"_s;
+                    break;
+                case 5:
+                    collectorName = u"Fan RPM"_s;
+                    break;
+                case 6:
+                    collectorName = u"CPU"_s;
+                    break;
+                case 7:
+                    collectorName = u"GPU"_s;
+                    break;
+                case 8:
+                    collectorName = u"Memory"_s;
+                    break;
+                }
+            }
+            if (!field->collector() || field->collector()->displayName() != collectorName) {
+                changed = true;
+                field->setCollector(m_collectorMap[collectorName]);
+            }
+        }
+        return changed;
+    }
 };
 
 #endif /* FRUNK_STATE_HPP */
