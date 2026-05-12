@@ -143,7 +143,7 @@ void Frunk::writePoints(const uint8_t &index, const FrunkField *field)
             s << uint8_t(255 / 2);
         } else {
             // usually we just scale the x/y axis to the full range of a uint16
-            s << uint8_t(field->depth() * 2);
+            s << uint8_t(field->points().size() * 2);
             s << float(field->yMin());
             s << float(field->yMax());
             double x, y;

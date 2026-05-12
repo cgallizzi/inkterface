@@ -187,10 +187,10 @@ class FrunkField : public QObject
     QString m_val;
     int m_depth = 20;
     QList<QPointF> m_points;
-    double m_xMax = std::numeric_limits<double>::min();
-    double m_xMin = std::numeric_limits<double>::max();
-    double m_yMax = std::numeric_limits<double>::min();
-    double m_yMin = std::numeric_limits<double>::max();
+    double m_xMax = 0;
+    double m_xMin = 0;
+    double m_yMax = 0;
+    double m_yMin = 0;
     QPointer<FrunkCollector> m_collector;
 
     void append(const double &x, const double &y)
@@ -217,10 +217,10 @@ class FrunkField : public QObject
         m_key = u""_s;
         m_val = u""_s;
         m_points.clear();
-        m_xMax = std::numeric_limits<double>::min();
-        m_xMin = std::numeric_limits<double>::max();
-        m_yMax = std::numeric_limits<double>::min();
-        m_yMin = std::numeric_limits<double>::max();
+        m_xMax = 0;
+        m_xMin = 0;
+        m_yMax = 0;
+        m_yMin = 0;
     }
 };
 
