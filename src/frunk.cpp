@@ -8,20 +8,13 @@
 #include <QSettings>
 #include <QUuid>
 
-#define SERVICE_UUID                                                                               \
-    QUuid { "95c7b479-8e84-4ce7-a121-faf74bf48c84" }
-#define TOPLINE_UUID                                                                               \
-    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871900" }
-#define MIDLINE_UUID                                                                               \
-    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871901" }
-#define BOTLINE_UUID                                                                               \
-    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871902" }
-#define KEYVAL_UUID                                                                                \
-    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871903" }
-#define VECTOR_UUID                                                                                \
-    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871904" }
-#define FLUSH_UUID                                                                                 \
-    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
+#define SERVICE_UUID QUuid{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
+#define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
+#define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
+#define BOTLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
+#define KEYVAL_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871903"}
+#define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
+#define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
 #define CONN_INTERVAL 2000
 #define SEND_INTERVAL 30000
@@ -182,29 +175,25 @@ void Frunk::connCheck()
         return;
     }
     auto frunk = m_ffinder->frunk();
-    if (!frunk || !frunk->bleInfo().isValid()) {
-        if (m_controller) {
-            qDebug() << "Removing connection, no frunk configured/found.";
-            clearConnection();
-        }
-        return;
-    }
-    // TODO: fix this, they don't always match when they DO match...
-    if (frunk->bleInfo() != m_device && m_device.isValid()) {
-        if (m_controller) {
-            qDebug() << "Removing connection, doesn't match configured frunk.";
-            clearConnection();
-        }
-    }
     auto state = m_controller ? m_controller->state() : QLowEnergyController::UnconnectedState;
-    qDebug() << "Controller state:" << state;
     bool connected = m_controller && (state == QLowEnergyController::ConnectingState ||
                                       state == QLowEnergyController::ConnectedState ||
                                       state == QLowEnergyController::DiscoveringState ||
                                       state == QLowEnergyController::DiscoveredState);
+    bool matches = frunk->name() == m_device.name();
+    bool found = m_ffinder->frunkFound();
     if (connected) {
+        if (!matches) {
+            qDebug() << "Removing connection, doesn't match.";
+            clearConnection();
+            m_ffinder->startDiscovery();
+        }
         return;
     }
+    if (!found || frunk->name().isEmpty()) {
+        return;
+    }
+    m_ffinder->stopDiscovery();
     m_connecting = true;
     m_device = frunk->bleInfo();
     qDebug() << "Connecting to " << m_device.name();

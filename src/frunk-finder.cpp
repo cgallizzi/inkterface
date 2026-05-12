@@ -5,28 +5,10 @@
 
 using namespace Qt::Literals::StringLiterals;
 
-FrunkInfo::FrunkInfo(const QBluetoothDeviceInfo &info, QObject *parent)
-    : QObject(parent)
-    , m_info(info)
-{
-}
-
 FrunkFinder::FrunkFinder(QObject *parent)
     : QObject(parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
 {
-    QSettings settings;
-    auto frunkName = settings.value(u"frunkName"_s).toString();
-    auto rssi = settings.value(u"lastRssi"_s).toInt();
-    auto ifaceVersion = settings.value(u"lastIfaceVersion"_s).toString().toLatin1();
-    if (!frunkName.isEmpty()) {
-        QBluetoothDeviceInfo info;
-        info.setName(frunkName);
-        info.setRssi(rssi);
-        info.setManufacturerData(0x055d, ifaceVersion);
-        m_placeholderFrunk = new FrunkInfo(info, this);
-    }
-
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this,
             &FrunkFinder::onDiscoveryEnded);
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::finished, this,
@@ -34,20 +16,25 @@ FrunkFinder::FrunkFinder(QObject *parent)
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
             &FrunkFinder::onDiscoveryError);
 
-    qDebug() << "Starting discovery!";
+    updatePlaceholder();
     startDiscovery();
 }
 
 void FrunkFinder::onDiscoveryEnded()
 {
-    for (auto frunk : m_frunks) {
+    if (m_stopping)
+        return;
+
+    for (auto frunk : std::as_const(m_frunks)) {
         frunk->deleteLater();
     }
     m_frunks.clear();
+    m_frunkFound = false;
 
-    QSettings settings;
-    auto frunkName = settings.value(u"frunkName"_s).toString();
-    for (const auto &info : m_discoveryAgent->discoveredDevices()) {
+    updatePlaceholder();
+    auto frunkName = m_placeholderFrunk->name();
+    const auto devices = m_discoveryAgent->discoveredDevices();
+    for (const auto &info : devices) {
         if (!info.isValid() || info.isCached() || !info.name().startsWith(u"FRUNK-"_s)) {
             continue;
         }
@@ -55,7 +42,9 @@ void FrunkFinder::onDiscoveryEnded()
         auto frunk = new FrunkInfo(info, this);
         m_frunks.append(frunk);
 
-        if (frunk->name() == frunkName) {
+        if (!frunkName.isEmpty() && frunk->name() == frunkName) {
+            m_frunkFound = true;
+            QSettings settings;
             settings.setValue(u"lastRssi"_s, frunk->rssi());
             settings.setValue(u"lastIfaceVersion"_s, frunk->ifaceVersion());
         }
@@ -69,18 +58,25 @@ void FrunkFinder::onDiscoveryEnded()
         }
         return a->name() < b->name();
     });
+    startDiscovery();
     emit frunksChanged();
-    startDiscovery();
 }
 
-void FrunkFinder::onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error)
+void FrunkFinder::updatePlaceholder()
 {
-    qDebug() << "Discovery Error: " << error;
-    startDiscovery();
-}
-
-void FrunkFinder::startDiscovery()
-{
-    m_discoveryAgent->setLowEnergyDiscoveryTimeout(10000);
-    m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
+    if (m_placeholderFrunk) {
+        m_placeholderFrunk->deleteLater();
+        m_placeholderFrunk = nullptr;
+    }
+    QSettings settings;
+    auto frunkName = settings.value(u"frunkName"_s).toString();
+    auto rssi = settings.value(u"lastRssi"_s).toInt();
+    auto ifaceVersion = settings.value(u"lastIfaceVersion"_s).toString().toLatin1();
+    QBluetoothDeviceInfo info;
+    if (!frunkName.isEmpty()) {
+        info.setName(frunkName);
+        info.setRssi(rssi);
+        info.setManufacturerData(0x055d, ifaceVersion);
+    }
+    m_placeholderFrunk = new FrunkInfo(info, this);
 }
