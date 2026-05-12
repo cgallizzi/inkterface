@@ -1,22 +1,12 @@
 #include "frunk.hpp"
 
-#include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <iterator>
-
 #include <QByteArray>
 #include <QCoreApplication>
 #include <QDataStream>
 #include <QDebug>
-#include <QDir>
-#include <QFile>
 #include <QObject>
 #include <QSettings>
-#include <QSysInfo>
 #include <QUuid>
-
-#include "mango.hpp"
 
 #define SERVICE_UUID                                                                               \
     QUuid { "95c7b479-8e84-4ce7-a121-faf74bf48c84" }
@@ -33,64 +23,29 @@
 #define FLUSH_UUID                                                                                 \
     QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
 
-#define RSSI_LIMIT -80
-#define RECON_INTERVAL 2000
-#define STATS_INTERVAL 2000
-#define MANGO_INTERVAL 15000
+#define CONN_INTERVAL 2000
 #define SEND_INTERVAL 30000
 
 using namespace Qt::Literals::StringLiterals;
 
-inline int64_t NOW_MS()
-{
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
-
 Frunk::Frunk(QObject *parent)
     : QObject(parent)
-    , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
-    , m_steam(new steam::Steam(this))
-    , m_stats(new SysStats(this))
-    , m_reconTimer(new QTimer(this))
-    , m_statsTimer(new QTimer(this))
-    , m_mangoTimer(new QTimer(this))
+    , m_ffinder(new FrunkFinder(this))
+    , m_fstate(new FrunkState(this))
+    , m_connTimer(new QTimer(this))
     , m_sendTimer(new QTimer(this))
 {
-    collectSystemState();
+    connect(m_ffinder, &FrunkFinder::frunksChanged, this, &Frunk::connCheck);
 
-    m_reconTimer->setSingleShot(false);
-    m_reconTimer->setInterval(RECON_INTERVAL);
-    connect(m_reconTimer, &QTimer::timeout, this, &Frunk::onReconCheck);
-
-    m_statsTimer->setSingleShot(false);
-    m_statsTimer->setInterval(STATS_INTERVAL);
-    connect(m_statsTimer, &QTimer::timeout, this, &Frunk::collectSystemState);
-    m_statsTimer->start();
-
-    m_mangoTimer->setSingleShot(false);
-    m_mangoTimer->setInterval(MANGO_INTERVAL);
-    connect(m_mangoTimer, &QTimer::timeout, this, &Frunk::collectMangoData);
-    // m_mangoTimer->start();
+    m_connTimer->setSingleShot(false);
+    m_connTimer->setInterval(CONN_INTERVAL);
+    connect(m_connTimer, &QTimer::timeout, this, &Frunk::connCheck);
+    m_connTimer->start();
 
     m_sendTimer->setSingleShot(false);
     m_sendTimer->setInterval(SEND_INTERVAL);
-    connect(m_sendTimer, &QTimer::timeout, this, &Frunk::sendSystemState);
+    connect(m_sendTimer, &QTimer::timeout, this, &Frunk::sendState);
     m_sendTimer->start();
-
-    connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this,
-            &Frunk::onDiscoveryEnded);
-    connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::finished, this,
-            &Frunk::onDiscoveryEnded);
-    connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
-            &Frunk::onDiscoveryError);
-    qDebug() << "Starting discovery!";
-    startDiscovery();
-
-    connect(m_steam, &steam::Steam::appStarted, this, &Frunk::onAppStarted);
-    connect(m_steam, &steam::Steam::appStopped, this, &Frunk::onAppStopped);
-    m_steam->watchConsoleLog(true);
 }
 
 void Frunk::stop()
@@ -99,55 +54,7 @@ void Frunk::stop()
     if (m_controller) {
         m_controller->disconnectFromDevice();
     }
-    if (m_discoveryAgent) {
-        m_discoveryAgent->stop();
-    }
-    mango::stop_logging(); // no harm in making sure we've stopped the logging session
     QTimer::singleShot(1000, this, [&]() { QCoreApplication::quit(); });
-}
-
-void Frunk::onDiscoveryEnded()
-{
-    bool noController =
-        !m_controller || m_controller->state() == QLowEnergyController::UnconnectedState;
-
-    QSettings settings;
-    auto frunkName = settings.value(u"frunkName"_s).toString();
-    qInfo() << "using" << frunkName << "from settings as desired name";
-
-    QBluetoothDeviceInfo device;
-    for (const auto &info : m_discoveryAgent->discoveredDevices()) {
-        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"FRUNK-"_s)) {
-            continue;
-        }
-        qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
-        if (!frunkName.isEmpty() && frunkName == info.name()) {
-            device = info;
-            break;
-        } else {
-            continue;
-        }
-    }
-    if (noController && device.isValid()) {
-        qDebug() << "Connecting to " << device.name();
-        m_device = device;
-        m_controller = QLowEnergyController::createCentral(device, this);
-        connect(m_controller, &QLowEnergyController::stateChanged, this,
-                &Frunk::onControllerStateChanged);
-        connect(m_controller, &QLowEnergyController::discoveryFinished, this,
-                &Frunk::onControllerServicesDiscovered);
-        connect(m_controller, &QLowEnergyController::errorOccurred, this,
-                &Frunk::onControllerError);
-        m_controller->connectToDevice();
-        m_reconTimer->start();
-    } else if (noController) {
-        startDiscovery();
-    }
-}
-
-void Frunk::onDiscoveryError(QBluetoothDeviceDiscoveryAgent::Error error)
-{
-    qDebug() << "Discovery Error: " << error;
 }
 
 void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state)
@@ -162,6 +69,8 @@ void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state
         }
         return;
     }
+    qDebug() << "connected, discovering services...";
+    m_connecting = false;
     m_controller->discoverServices();
 }
 
@@ -181,23 +90,8 @@ void Frunk::onControllerServicesDiscovered()
         m_controller->disconnectFromDevice();
         return;
     }
-    connect(m_service, &QLowEnergyService::errorOccurred, this, &Frunk::onServiceError);
     connect(m_service, &QLowEnergyService::stateChanged, this, &Frunk::onServiceStateChanged);
-    connect(m_service, &QLowEnergyService::characteristicRead, this,
-            &Frunk::onCharacteristicChanged);
-    connect(m_service, &QLowEnergyService::characteristicChanged, this,
-            &Frunk::onCharacteristicChanged);
     m_service->discoverDetails();
-}
-
-void Frunk::onControllerError(QLowEnergyController::Error error)
-{
-    qDebug() << "Controller error: " << error;
-}
-
-void Frunk::onServiceError(QLowEnergyService::ServiceError error)
-{
-    qDebug() << "Service error:" << error;
 }
 
 void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
@@ -234,7 +128,7 @@ void Frunk::writeKeyVal(const uint8_t &index, const QString &key, const QString 
     }
 }
 
-void Frunk::writePoints(const uint8_t &index, const Points &points)
+void Frunk::writePoints(const uint8_t &index, const FrunkField *field)
 {
     auto c = m_service->characteristic(VECTOR_UUID);
     if (c.isValid()) {
@@ -244,26 +138,26 @@ void Frunk::writePoints(const uint8_t &index, const Points &points)
         s.setFloatingPointPrecision(QDataStream::SinglePrecision);
 
         s << index;
-        if (qFuzzyCompare(points.xMax + 1.0, points.xMin + 1.0) ||
-            qFuzzyCompare(points.yMax + 1.0, points.yMin + 1.0)) {
+        if (qFuzzyCompare(field->xMax() + 1.0, field->xMin() + 1.0) ||
+            qFuzzyCompare(field->yMax() + 1.0, field->yMin() + 1.0)) {
             // handle potential divide by zero errors, if line is flat, draw a flat line
             s << uint8_t(4);
-            s << float(points.yMin);
-            s << float(points.yMax);
+            s << float(field->yMin());
+            s << float(field->yMax());
             s << uint8_t(0);
             s << uint8_t(255 / 2);
             s << uint8_t(255);
             s << uint8_t(255 / 2);
         } else {
             // usually we just scale the x/y axis to the full range of a uint16
-            s << uint8_t(points.points.size() * 2);
-            s << float(points.yMin);
-            s << float(points.yMax);
+            s << uint8_t(field->depth() * 2);
+            s << float(field->yMin());
+            s << float(field->yMax());
             double x, y;
-            for (const auto &point : points.points) {
+            for (const auto &point : field->points()) {
                 // we pack these into uint16_t to ease the unpack on the esp32
-                x = 255.0 * ((point.x - points.xMin) / (points.xMax - points.xMin));
-                y = 255.0 * ((point.y - points.yMin) / (points.yMax - points.yMin));
+                x = 255.0 * ((point.x() - field->xMin()) / (field->xMax() - field->xMin()));
+                y = 255.0 * ((point.y() - field->yMin()) / (field->yMax() - field->yMin()));
                 s << uint8_t(x);
                 s << uint8_t(y);
             }
@@ -282,227 +176,86 @@ void Frunk::flushDisplay()
     }
 }
 
-void Frunk::onCharacteristicChanged(const QLowEnergyCharacteristic &, const QByteArray &value)
+void Frunk::connCheck()
 {
-    qDebug() << "Characteristc changed: " << value;
-}
-
-void Frunk::onReconCheck()
-{
-    if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
-        m_reconTimer->stop();
-        qDebug() << "Lost connection, restarting discovery!";
-        startDiscovery();
+    if (m_connecting) {
         return;
     }
-    if (m_controller->state() < QLowEnergyController::ConnectedState) {
+    auto frunk = m_ffinder->frunk();
+    if (!frunk || !frunk->bleInfo().isValid()) {
+        if (m_controller) {
+            qDebug() << "Removing connection, no frunk configured/found.";
+            clearConnection();
+        }
         return;
     }
-    // NOTE: ->readRssi() doesn't work on linux/bluez, let the MCU kick us
-}
-
-void Frunk::onAppStarted(steam::App details)
-{
-    qDebug() << "App started:" << details.appid << "," << details.name;
-    state.app.appid = details.appid;
-    // TODO: add full utf-8 support to the e-ink font
-    state.app.name.clear();
-    for (QChar c : details.name) {
-        if (c.unicode() <= 127) {
-            state.app.name.append(c);
+    // TODO: fix this, they don't always match when they DO match...
+    if (frunk->bleInfo() != m_device && m_device.isValid()) {
+        if (m_controller) {
+            qDebug() << "Removing connection, doesn't match configured frunk.";
+            clearConnection();
         }
     }
-    state.dirty = true;
-    m_statsTimer->start(100);
-    // m_mangoTimer->start(100);
-    m_sendTimer->start(500);
-}
-
-void Frunk::onAppStopped(steam::App details)
-{
-    qDebug() << "App stopped:" << details.appid << "," << details.name;
-    state.app.appid.clear();
-    state.app.name.clear();
-    state.dirty = true;
-    mango::stop_logging(); // no harm in making sure we've stopped the logging session
-    m_statsTimer->start(100);
-    m_sendTimer->start(500);
-}
-
-void Frunk::startDiscovery()
-{
-    if (m_stopping)
-        return;
-    m_discoveryAgent->setLowEnergyDiscoveryTimeout(10000);
-    m_discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
-}
-
-void Frunk::injestMangoLogs()
-{
-    auto d = QDir::home();
-    auto entries = d.entryList({{"mangoapp_*.csv"}});
-    std::sort(entries.begin(), entries.end());
-    qDebug() << "injesting mango logs:";
-    for (auto entry : entries) {
-        // ignore the summary logs, we are generating time series data
-        if (!entry.contains("_summary.csv")) {
-            qDebug() << "> " << entry;
-            injestMangoLog(d.absoluteFilePath(entry));
-        }
-        d.remove(entry);
-    }
-}
-
-void Frunk::injestMangoLog(QString path)
-{
-    QFile f{path};
-    if (!f.open(QFile::ReadOnly)) {
-        qWarning() << "failed to read mango log:" << path;
+    auto state = m_controller ? m_controller->state() : QLowEnergyController::UnconnectedState;
+    qDebug() << "Controller state:" << state;
+    bool connected = m_controller && (state == QLowEnergyController::ConnectingState ||
+                                      state == QLowEnergyController::ConnectedState ||
+                                      state == QLowEnergyController::DiscoveringState ||
+                                      state == QLowEnergyController::DiscoveredState);
+    if (connected) {
         return;
     }
-    state.clearPoints(3);
-    state.clearPoints(4);
-    state.clearPoints(5);
-    state.setKeyVal(6, "CPU", u"--%"_s);
-    state.setKeyVal(6, "GPU", u"--%"_s);
-    state.setKeyVal(6, "FPS", u"--"_s);
-    bool in_data = false;
-    int64_t last_elapsed = 0, current_elapsed = 0;
-    double fps = 0, cpu_load = 0, gpu_load = 0;
-    int sample_count = 0;
-    QByteArray line;
-    QList<QByteArray> fields;
-    while (!f.atEnd()) {
-        line = f.readLine().trimmed();
-        // skip lines until we see the desired header
-        if (!in_data && line.startsWith("fps,frametime,cpu_load,")) {
-            in_data = true;
-            continue;
-        } else if (!in_data) {
-            continue;
-        }
-        // this is a very simple csv, all numeric fields, no risk of stray commas
-        fields = line.split(',');
-        current_elapsed = fields.last().toLongLong() / 1000 / 1000; // to ms
-        fps += fields.at(0).toDouble();
-        cpu_load += fields.at(2).toDouble();
-        gpu_load += fields.at(4).toDouble();
-        ++sample_count;
-        // ignore points that are too close together, we have limited resolution
-        // on the e-ink display so it's pointless to have really high freq data
-        if ((current_elapsed - last_elapsed) < 500) {
-            continue;
-        }
-        fps /= sample_count;
-        cpu_load /= sample_count;
-        gpu_load /= sample_count;
-        state.setKeyVal(6, "CPU", u"%1%"_s.arg(QString::number(cpu_load, 'f', 1)));
-        state.appendPoint(3, current_elapsed, cpu_load);
-        state.setKeyVal(7, "GPU", u"%1%"_s.arg(QString::number(gpu_load, 'f', 1)));
-        state.appendPoint(4, current_elapsed, gpu_load);
-        state.setKeyVal(8, "FPS", u"%1"_s.arg(QString::number(fps, 'f', 1)));
-        state.appendPoint(5, current_elapsed, fps);
-        last_elapsed = current_elapsed;
-        fps = 0;
-        cpu_load = 0;
-        gpu_load = 0;
-        sample_count = 0;
-    }
-    f.close();
+    m_connecting = true;
+    m_device = frunk->bleInfo();
+    qDebug() << "Connecting to " << m_device.name();
+    m_controller = QLowEnergyController::createCentral(m_device, this);
+    connect(m_controller, &QLowEnergyController::stateChanged, this,
+            &Frunk::onControllerStateChanged);
+    connect(m_controller, &QLowEnergyController::discoveryFinished, this,
+            &Frunk::onControllerServicesDiscovered);
+    m_controller->connectToDevice();
 }
 
-void Frunk::collectSystemState()
+void Frunk::clearConnection()
 {
-    QFile f;
-    QByteArray ba;
-    QDir d;
-
-    state.topLine = m_stats->getHostName();
-    state.midLine = m_steam->currentUser();
-    ;
-    if (state.app.name.isEmpty() && !state.botLine.isEmpty()) {
-        state.botLine = "";
-    } else if (!state.app.name.isEmpty()) {
-        state.botLine = state.app.name;
+    if (m_service) {
+        m_service->disconnect(this);
+        m_service->deleteLater();
+        m_service = nullptr;
     }
-
-    state.setKeyVal(0, "OS", m_stats->getOSVersion());
-    state.setKeyVal(1, "BIOS", m_stats->getBIOSVersion());
-    // state.setKeyVal(2, "STEAM", m_steam->steamVersion());
-    state.setKeyVal(2, "APPS", QString::number(m_steam->installedAppCount()));
-
-    double x = NOW_MS();
-    double y = 0;
-
-    y = m_stats->getCPUTemp();
-    state.setKeyVal(3, "CPU", u"%1 C"_s.arg(QString::number(y, 'f', 0)));
-    state.appendPoint(0, x, y);
-
-    y = m_stats->getGPUTemp();
-    state.setKeyVal(4, "GPU", u"%1 C"_s.arg(QString::number(y, 'f', 0)));
-    state.appendPoint(1, x, y);
-
-    y = m_stats->getFanRPM();
-    state.setKeyVal(5, "FAN", u"%1 RPM"_s.arg(QString::number(y, 'f', 0)));
-    state.appendPoint(2, x, y);
-
-    y = m_stats->getCPUPerc();
-    state.setKeyVal(6, "CPU", u"%1%"_s.arg(QString::number(y, 'f', 0)));
-    state.appendPoint(3, x, y);
-
-    y = m_stats->getGPUPerc();
-    state.setKeyVal(7, "GPU", u"%1%"_s.arg(QString::number(y, 'f', 0)));
-    state.appendPoint(4, x, y);
-
-    y = m_stats->getRAMPerc();
-    state.setKeyVal(8, "MEM", u"%1%"_s.arg(QString::number(y, 'f', 0)));
-    state.appendPoint(5, x, y);
-
-    m_statsTimer->setInterval(STATS_INTERVAL);
-    m_statsTimer->start();
+    if (m_controller) {
+        m_controller->disconnect(this);
+        m_controller->disconnectFromDevice();
+        m_controller->deleteLater();
+        m_controller = nullptr;
+    }
+    m_device = QBluetoothDeviceInfo();
 }
 
-void Frunk::collectMangoData()
-{
-    if (state.app.appid.isEmpty()) {
-        return;
-    }
-    mango::set_display(false);
-    mango::stop_logging();
-    injestMangoLogs();
-    mango::set_display(true);
-    mango::start_logging(state.app.appid.toLatin1());
-
-    m_mangoTimer->setInterval(MANGO_INTERVAL);
-    // m_mangoTimer->start();
-}
-
-void Frunk::sendSystemState()
+void Frunk::sendState()
 {
     if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
         return;
     }
-    if (!state.dirty) {
+    if (!m_fstate->dirty()) {
         return;
     }
 
-    writeLine(TOPLINE_UUID, state.topLine);
-    writeLine(MIDLINE_UUID, state.midLine);
-    writeLine(BOTLINE_UUID, state.botLine);
-    for (auto item = state.keyvals.begin(); item != state.keyvals.end(); ++item) {
-        auto index = std::distance(state.keyvals.begin(), item);
-        if (item->key.isEmpty()) {
-            writeKeyVal(index, "", "");
-        } else {
-            writeKeyVal(index, item->key, item->val);
+    writeLine(TOPLINE_UUID, m_fstate->topLine());
+    writeLine(MIDLINE_UUID, m_fstate->midLine());
+    writeLine(BOTLINE_UUID, m_fstate->botLine());
+    int fields = 0;
+    int sparks = 0;
+    for (auto field : m_fstate->fields()) {
+        writeKeyVal(fields, field->key(), field->val());
+        ++fields;
+        if (field->depth() > 0) {
+            writePoints(sparks, field);
+            ++sparks;
         }
     }
-    for (auto item = state.sparks.begin(); item != state.sparks.end(); ++item) {
-        auto index = std::distance(state.sparks.begin(), item);
-        writePoints(index, *item);
-    }
-
     flushDisplay();
+
     m_sendTimer->setInterval(SEND_INTERVAL);
     m_sendTimer->start();
 }
