@@ -10,3 +10,4 @@ sdkconfig.*
 .qt/
 CMakeFiles/
 meta_types/
+*.user
