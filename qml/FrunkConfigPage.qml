@@ -32,7 +32,8 @@ Item {
             Layout.fillWidth: true
             elide: Label.ElideRight
             font.pixelSize: 36
-            text: `${frunk.name}, ${frunk.rssi}, ${frunk.ifaceVersion}`
+            font.bold: true
+            text: frunk.name
         }
 
         VConfirmButton {
