@@ -89,7 +89,8 @@ class SysStats : public QObject
         QFile f;
         QString data;
         QDir d{"/sys/class/hwmon"};
-        for (auto entry : d.entryList({{"hwmon*"}})) {
+        const auto entries = d.entryList({{"hwmon*"}});
+        for (auto &entry : entries) {
             f.setFileName(d.absoluteFilePath(entry) + "/name");
             if (f.exists() && f.open(QFile::ReadOnly)) {
                 data = QString::fromUtf8(f.readAll()).trimmed();

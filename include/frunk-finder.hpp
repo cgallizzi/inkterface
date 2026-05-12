@@ -4,8 +4,9 @@
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QLowEnergyController>
 #include <QObject>
+#include <QPointer>
 #include <QSettings>
-#include <QtQml>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 using namespace Qt::StringLiterals;
 

@@ -7,6 +7,8 @@
 #include <limits>
 
 #include <QObject>
+#include <QPointF>
+#include <QPointer>
 #include <QSettings>
 #include <QTimer>
 
@@ -201,7 +203,7 @@ class FrunkField : public QObject
         m_xMin = std::numeric_limits<double>::max();
         m_yMax = std::numeric_limits<double>::min();
         m_yMin = std::numeric_limits<double>::max();
-        for (const auto &point : m_points) {
+        for (const auto &point : std::as_const(m_points)) {
             m_xMax = std::max(m_xMax, point.x());
             m_xMin = std::min(m_xMin, point.x());
             m_yMax = std::max(m_yMax, point.y());
@@ -359,7 +361,7 @@ class FrunkState : public QObject
                 }
             }
             if (!collectorName.isEmpty()) {
-                for (auto collector : m_collectors) {
+                for (auto collector : std::as_const(m_collectors)) {
                     if (collector->displayName() == collectorName) {
                         field->setCollector(collector);
                         break;
@@ -429,7 +431,7 @@ class FrunkState : public QObject
         // TODO: add full utf-8 support to the e-ink font
         QString botLine;
         auto app = m_steam->runningApp();
-        for (QChar c : app.name) {
+        for (QChar c : std::as_const(app.name)) {
             if (c.unicode() <= 127) {
                 botLine.append(c);
             }
@@ -439,7 +441,7 @@ class FrunkState : public QObject
 
         // collect new data into fields (for all fields that have collectors)
         double x = NOW_MS();
-        for (auto field : m_fields) {
+        for (auto field : std::as_const(m_fields)) {
             changed |= field->collect(x);
         }
 

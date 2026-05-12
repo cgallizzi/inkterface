@@ -37,7 +37,8 @@ QString Steam::currentUser(bool account_name)
 {
     QString result;
     QVariantMap loginusers = loadVDF(steamDir() + "/config/loginusers.vdf");
-    for (auto user : loginusers.value("users").toMap()) {
+    const auto users = loginusers.value("users").toMap();
+    for (auto &user : users) {
         if (user.toMap().value("MostRecent").value<QByteArray>() == "1"_ba) {
             result = user.toMap().value(account_name ? "AccountName" : "PersonaName").toString();
             break;
@@ -51,7 +52,8 @@ QString Steam::steamVersion()
     QDir d(steamDir() + "/package");
     QFile f;
     QByteArray ba;
-    for (auto entry : d.entryList({{"*.manifest"}})) {
+    const auto entries = d.entryList({{"*.manifest"}});
+    for (auto &entry : entries) {
         f.setFileName(d.absoluteFilePath(entry));
         if (f.exists() && f.open(QFile::ReadOnly)) {
             while (true) {

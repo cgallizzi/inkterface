@@ -50,7 +50,7 @@ void SvcMgr::installService()
         return;
     }
 
-    auto svcDef = SERVICE_TEMPLATE.arg(SVC_NAME).arg(exePath).arg(u" --headless"_s);
+    auto svcDef = SERVICE_TEMPLATE.arg(SVC_NAME, exePath, u" --headless"_s);
     auto dir = QDir::home();
     if (!dir.mkpath(u".config/systemd/user"_s)) {
         qWarning() << "Failed to create systemd user config directory!";

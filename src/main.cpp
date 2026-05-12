@@ -1,7 +1,4 @@
 #include <cstdlib>
-#include <filesystem>
-#include <iostream>
-#include <thread>
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -34,7 +31,8 @@ bool registerFonts()
 {
     bool success = true;
     QString prefix = u":/%1/resources/IBM_Plex_Mono/"_s.arg(QML_URI);
-    for (const QString &f : QDir(prefix).entryList({u"*.ttf"_s})) {
+    const auto entries = QDir(prefix).entryList({u"*.ttf"_s});
+    for (const QString &f : entries) {
         if (QFontDatabase::addApplicationFont(prefix + f) == -1) {
             success = false;
             break;

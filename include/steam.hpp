@@ -13,7 +13,8 @@ struct App {
     QString appid;
     QString name;
 
-    void clear() {
+    void clear()
+    {
         appid.clear();
         name.clear();
     }
@@ -40,16 +41,16 @@ class Steam : public QObject
     QVariantMap loadVDF(const QString &path);
     QString parseVDF(const QByteArray &data, QVariantMap &output);
 
-    const App& runningApp() const { return m_runningApp; }
+    const App &runningApp() const { return m_runningApp; }
 
   public slots:
     void watchConsoleLog(bool start = false);
     void getAppDetails(QString appid, bool emit_start = false, bool emit_stop = false);
 
   signals:
-    void appStarted(App details);
-    void appStopped(App details);
-    void appDetails(App details);
+    void appStarted(steam::App details);
+    void appStopped(steam::App details);
+    void appDetails(steam::App details);
 
   private slots:
     void appDetailsReply(QString appid, bool emit_start = false, bool emit_stop = false);
