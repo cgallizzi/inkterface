@@ -296,6 +296,21 @@ class FrunkState : public QObject
                           std::bind(&SysStats::getUptime, m_stats),
                           [](double v) { return u"%1 S"_s.arg(QString::number(v, 'f', 0)); });
 
+        /* other ideas for things to track/display:
+         *  active download progress as discrete bar
+         *  quote of the day
+         *  gabe/gnomekyle faces
+         *  steampal-chan face
+         *  clock (analog and digital, updates every minute)
+         *  portal sentry eye
+         *  companion cube
+         *  literal easter egg
+         *  weather display (need to pickup location or allow setting location)
+         *  top style readout (likely top n-processes aggregated over like 30+ seconds)
+         *  show connected controllers, just steam controller initially, other HID devices
+         *      could be identified later or added by community
+         */
+
         // TODO: allow configuring different numbers/layouts of fields
         // TODO: allow re-linking collectors to fields if collector set changes
         //       (to handle collectors added later in runtime)

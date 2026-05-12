@@ -48,47 +48,10 @@ inline int64_t NOW_MS()
         .count();
 }
 
-Frunk::Frunk(const QString &name, QObject *parent)
+Frunk::Frunk(QObject *parent)
     : QObject(parent)
-    , ScalarSources({
-          u"OS"_s,    // SysStats::getOSVersion()
-          u"BIOS"_s,  // SysStats::getBIOSVersion()
-          u"STEAM"_s, // Steam::steamVersion()
-      })
-    , VectorSources({
-          u"FAN RPM"_s,   // SysStats::getFanRPM()
-          u"GPU SCLK"_s,  // SysStats::getGPUSCLK()
-          u"GPU MCLK"_s,  // SysStats::getGPUMCLK()
-          u"GPU V"_s,     // SysStats::getGPUV()
-          u"GPU W"_s,     // SysStats::getGPUW()
-          u"GPU TEMP"_s,  // SysStats::getGPUTemp()
-          u"GPU MEM"_s,   // SysStats::getGPUMemTemp()
-          u"GPU %"_s,     // SysStats::getGPUPerc()
-          u"GPU MEM %"_s, // SysStats::getGPUMemPerc()
-          u"SSD TEMP"_s,  // SysStats::getSSDTemp()
-          u"CPU TEMP"_s,  // SysStats::getCPUTemp()
-          u"CPU %"_s,     // SysStats::getCPUPerc()
-          u"MEM %"_s,     // SysStats::getRAMPerc()
-          u"UPTIME"_s,    // SysStats::getUptime()
-          u"APP COUNT"_s, // Steam::installedAppCount()
-      })
-    /* other ideas for things to display:
-     *  active download progress as discrete bar
-     *  quote of the day
-     *  gabe/gnomekyle faces
-     *  steampal-chan face
-     *  clock (analog and digital, updates every minute)
-     *  portal sentry eye
-     *  companion cube
-     *  literal easter egg
-     *  weather display (need to pickup location or allow setting location)
-     *  top style readout (likely top n-processes aggregated over like 30+ seconds)
-     *  show connected controllers, just steam controller initially, other HID devices
-     *      could be identified later or added by community
-     */
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
     , m_steam(new steam::Steam(this))
-    , m_desiredName(name)
     , m_stats(new SysStats(this))
     , m_reconTimer(new QTimer(this))
     , m_statsTimer(new QTimer(this))
@@ -96,13 +59,6 @@ Frunk::Frunk(const QString &name, QObject *parent)
     , m_sendTimer(new QTimer(this))
 {
     collectSystemState();
-
-    QSettings settings;
-    auto frunkName = settings.value(u"frunkName"_s).toString();
-    if (m_desiredName.isEmpty() && !frunkName.isEmpty()) {
-        qInfo() << "using" << frunkName << "from settings as desired name";
-        m_desiredName = frunkName;
-    }
 
     m_reconTimer->setSingleShot(false);
     m_reconTimer->setInterval(RECON_INTERVAL);
@@ -154,29 +110,28 @@ void Frunk::onDiscoveryEnded()
 {
     bool noController =
         !m_controller || m_controller->state() == QLowEnergyController::UnconnectedState;
-    QBluetoothDeviceInfo nearest;
+
+    QSettings settings;
+    auto frunkName = settings.value(u"frunkName"_s).toString();
+    qInfo() << "using" << frunkName << "from settings as desired name";
+
+    QBluetoothDeviceInfo device;
     for (const auto &info : m_discoveryAgent->discoveredDevices()) {
         if (!info.isValid() || info.isCached() || !info.name().startsWith(u"FRUNK-"_s)) {
             continue;
         }
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
-        if (!m_desiredName.isEmpty()) {
-            if (m_desiredName == info.name()) {
-                nearest = info;
-                break;
-            } else {
-                continue;
-            }
-        }
-        if (!nearest.isValid()) {
-            nearest = info;
-        } else if (info.rssi() < nearest.rssi()) {
-            nearest = info;
+        if (!frunkName.isEmpty() && frunkName == info.name()) {
+            device = info;
+            break;
+        } else {
+            continue;
         }
     }
-    if (noController && nearest.isValid() && nearest.rssi() > RSSI_LIMIT) {
-        qDebug() << "Connecting to " << nearest.name();
-        m_controller = QLowEnergyController::createCentral(nearest, this);
+    if (noController && device.isValid()) {
+        qDebug() << "Connecting to " << device.name();
+        m_device = device;
+        m_controller = QLowEnergyController::createCentral(device, this);
         connect(m_controller, &QLowEnergyController::stateChanged, this,
                 &Frunk::onControllerStateChanged);
         connect(m_controller, &QLowEnergyController::discoveryFinished, this,

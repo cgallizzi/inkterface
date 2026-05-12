@@ -27,6 +27,7 @@ class FrunkInfo : public QObject
     qint16 rssi() const { return m_info.rssi(); }
     QString ifaceVersion() const { return QString::fromLatin1(m_info.manufacturerData(0x055d)); }
     bool supported() const { return ifaceVersion() == u"FRv01"_s; }
+    const QBluetoothDeviceInfo& bleInfo() const { return m_info; }
 
   private:
     QBluetoothDeviceInfo m_info;
@@ -51,7 +52,7 @@ class FrunkFinder : public QObject
         }
     }
 
-    FrunkInfo *frunk() const
+    QPointer<FrunkInfo> frunk() const
     {
         QSettings settings;
         auto frunkName = settings.value(u"frunkName"_s).toString();

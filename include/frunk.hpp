@@ -19,14 +19,11 @@ class Frunk : public QObject
     Q_OBJECT
 
   public:
-    explicit Frunk(const QString &name = "", QObject *parent = nullptr);
+    explicit Frunk(QObject *parent = nullptr);
     ~Frunk()
     {
         if (m_controller) {
             m_controller->disconnectFromDevice();
-        }
-        if (m_discoveryAgent) {
-            m_discoveryAgent->stop();
         }
     }
 
@@ -168,8 +165,8 @@ class Frunk : public QObject
     QBluetoothDeviceDiscoveryAgent *m_discoveryAgent = nullptr;
     QLowEnergyController *m_controller = nullptr;
     QLowEnergyService *m_service = nullptr;
+    QBluetoothDeviceInfo m_device;
     steam::Steam *m_steam = nullptr;
-    QString m_desiredName = "";
     SysStats* m_stats = nullptr;
 
     QTimer *m_reconTimer = nullptr;
@@ -184,8 +181,6 @@ class Frunk : public QObject
     void writePoints(const uint8_t &index, const Points &points);
     void flushDisplay();
 
-    QString findHwmonNode(const QString &name);
-    double readHwmonNode(const QString &name, const QString &field, const double &scale = 1000.0);
     void injestMangoLog(QString path);
     void injestMangoLogs();
 };
