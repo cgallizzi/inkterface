@@ -21,6 +21,15 @@ class Frunk : public QObject
         }
     }
 
+    bool isConnected() const
+    {
+        auto state = m_controller ? m_controller->state() : QLowEnergyController::UnconnectedState;
+        return state == QLowEnergyController::ConnectingState ||
+               state == QLowEnergyController::ConnectedState ||
+               state == QLowEnergyController::DiscoveringState ||
+               state == QLowEnergyController::DiscoveredState;
+    }
+
   public slots:
     void stop();
 

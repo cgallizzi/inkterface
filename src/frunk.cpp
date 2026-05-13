@@ -53,13 +53,14 @@ void Frunk::stop()
 void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state)
 {
     qDebug() << "New controller state: " << state;
-    if (state < QLowEnergyController::ConnectedState) {
+    if (!isConnected()) {
         // delete any lingering service object that was probably invalidated by
         // a disconnect
         if (m_service) {
             m_service->deleteLater();
             m_service = nullptr;
         }
+        m_ffinder->startDiscovery();
         return;
     }
     qDebug() << "connected, discovering services...";
@@ -175,14 +176,9 @@ void Frunk::connCheck()
         return;
     }
     auto frunk = m_ffinder->frunk();
-    auto state = m_controller ? m_controller->state() : QLowEnergyController::UnconnectedState;
-    bool connected = m_controller && (state == QLowEnergyController::ConnectingState ||
-                                      state == QLowEnergyController::ConnectedState ||
-                                      state == QLowEnergyController::DiscoveringState ||
-                                      state == QLowEnergyController::DiscoveredState);
     bool matches = frunk->name() == m_device.name();
     bool found = m_ffinder->frunkFound();
-    if (connected) {
+    if (isConnected()) {
         if (!matches) {
             qDebug() << "Removing connection, doesn't match.";
             clearConnection();
