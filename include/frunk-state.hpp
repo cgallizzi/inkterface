@@ -200,9 +200,9 @@ class FrunkField : public QObject
             m_points.pop_front();
         }
         // slow, recalc max/min, but we keep so few points it's not critical
-        m_xMax = std::numeric_limits<double>::min();
+        m_xMax = std::numeric_limits<double>::lowest();
         m_xMin = std::numeric_limits<double>::max();
-        m_yMax = std::numeric_limits<double>::min();
+        m_yMax = std::numeric_limits<double>::lowest();
         m_yMin = std::numeric_limits<double>::max();
         for (const auto &point : std::as_const(m_points)) {
             m_xMax = std::max(m_xMax, point.x());
