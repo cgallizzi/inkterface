@@ -1,5 +1,9 @@
 #include "sysstats.hpp"
 
+#include <chrono>
+
+#define PROC_INTERVAL std::chrono::duration<double>(1)
+
 SysStats::SysStats(QObject *parent)
     : QObject(parent)
 {
@@ -7,37 +11,45 @@ SysStats::SysStats(QObject *parent)
 
 double SysStats::getCPUPerc()
 {
+    static std::chrono::time_point<std::chrono::steady_clock> lastTS;
+    static double lastResult = 0;
     static double prevBusyTime = 0;
     static double prevTotalTime = 0;
     double currBusyTime = 0;
     double currTotalTime = 0;
     double result = 0;
 
-    QFile f("/proc/stat");
-    if (!f.exists() || !f.open(QFile::ReadOnly)) {
-        return result;
+    auto nowTS = std::chrono::steady_clock::now();
+    result = lastResult;
+    if (nowTS - lastTS > PROC_INTERVAL) {
+        QFile f("/proc/stat");
+        if (!f.exists() || !f.open(QFile::ReadOnly)) {
+            return result;
+        }
+        QByteArray line = f.readLine();
+        f.close();
+        if (!line.startsWith("cpu"_ba)) {
+            return result;
+        }
+        line = line.mid(3).trimmed();
+        auto parts = line.split(' ');
+        if (parts.size() < 7) {
+            return result;
+        }
+        currBusyTime = parts[0].toDouble()                  // user busy time
+                       + parts[1].toDouble()                // nice busy time
+                       + parts[2].toDouble()                // system busy time
+                       + parts[5].toDouble()                // irq busy time
+                       + parts[6].toDouble();               // softirq busy time
+        currTotalTime = currBusyTime + parts[3].toDouble(); // add system idle time
+        if (prevBusyTime > 0 && prevTotalTime > 0 && currTotalTime - prevTotalTime > 0) {
+            result = (currBusyTime - prevBusyTime) / (currTotalTime - prevTotalTime) * 100.0;
+        }
+        prevBusyTime = currBusyTime;
+        prevTotalTime = currTotalTime;
+        lastTS = nowTS;
+        lastResult = result;
     }
-    QByteArray line = f.readLine();
-    f.close();
-    if (!line.startsWith("cpu"_ba)) {
-        return result;
-    }
-    line = line.mid(3).trimmed();
-    auto parts = line.split(' ');
-    if (parts.size() < 7) {
-        return result;
-    }
-    currBusyTime = parts[0].toDouble()                  // user busy time
-                   + parts[1].toDouble()                // nice busy time
-                   + parts[2].toDouble()                // system busy time
-                   + parts[5].toDouble()                // irq busy time
-                   + parts[6].toDouble();               // softirq busy time
-    currTotalTime = currBusyTime + parts[3].toDouble(); // add system idle time
-    if (prevBusyTime > 0 && prevTotalTime > 0 && currTotalTime - prevTotalTime > 0) {
-        result = (currBusyTime - prevBusyTime) / (currTotalTime - prevTotalTime) * 100.0;
-    }
-    prevBusyTime = currBusyTime;
-    prevTotalTime = currTotalTime;
     return result;
 }
 
