@@ -54,18 +54,16 @@ void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state
 {
     qDebug() << "New controller state: " << state;
     if (!isConnected()) {
-        // delete any lingering service object that was probably invalidated by
-        // a disconnect
-        if (m_service) {
-            m_service->deleteLater();
-            m_service = nullptr;
-        }
+        qDebug() << "lost connection, clearing...";
+        clearConnection();
         m_ffinder->startDiscovery();
         return;
     }
-    qDebug() << "connected, discovering services...";
-    m_connecting = false;
-    m_controller->discoverServices();
+    if (state == QLowEnergyController::ConnectedState) {
+        qDebug() << "connected, discovering services...";
+        m_connecting = false;
+        m_controller->discoverServices();
+    }
 }
 
 void Frunk::onControllerServicesDiscovered()
