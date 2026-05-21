@@ -4,6 +4,7 @@
 #include <filesystem>
 
 #include <QDebug>
+#include <QProcess>
 #include <QDir>
 
 using namespace Qt::Literals::StringLiterals;
@@ -70,11 +71,11 @@ void SvcMgr::installService()
     f.write(svcDef.toLatin1());
     f.close();
     qDebug() << "wrote svc def to" << f.fileName() << ", def:" << svcDef;
-    auto exitCode = std::system("systemctl --user daemon-reload");
+    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"daemon-reload"_s});
     if (exitCode != 0) {
         qWarning() << "Failed to reload user service definitions!" << exitCode;
     }
-    exitCode = std::system("systemctl --user enable --now " SVC_FILE);
+    exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"enable"_s, u"--now"_s, SVC_FILE});
     if (exitCode != 0) {
         qWarning() << "Failed enable service!" << exitCode;
     }
@@ -89,36 +90,40 @@ void SvcMgr::uninstallService()
         qInfo() << "Service not installed!";
         return;
     }
-    if (std::system("systemctl --user disable --now " SVC_FILE) != 0) {
-        qWarning() << "Failed to disable service!";
+    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"disable"_s, u"--now"_s, SVC_FILE});
+    if (exitCode != 0) {
+        qWarning() << "Failed to disable service!" << exitCode;
     }
     dir.remove(SVC_FILE);
 
-    if (std::system("systemctl --user daemon-reload")) {
-        qWarning() << "Failed to reload user service definitions!";
+    exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"daemon-reload"_s});
+    if (exitCode != 0) {
+        qWarning() << "Failed to reload user service definitions!" << exitCode;
     }
     check();
 }
 
 void SvcMgr::startService()
 {
-    if (std::system("systemctl --user start " SVC_FILE) != 0) {
-        qWarning() << "Failed start service!";
+    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"start"_s, SVC_FILE});
+    if (exitCode != 0) {
+        qWarning() << "Failed start service!" << exitCode;
     }
     check();
 }
 
 void SvcMgr::stopService()
 {
-    if (std::system("systemctl --user stop " SVC_FILE) != 0) {
-        qWarning() << "Failed stop service!";
+    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"stop"_s, SVC_FILE});
+    if (exitCode != 0) {
+        qWarning() << "Failed stop service!" << exitCode;
     }
     check();
 }
 
 void SvcMgr::check()
 {
-    int exitCode = std::system("systemctl --no-pager --user is-active " SVC_NAME);
+    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--no-pager"_s, u"--user"_s, u"is-active"_s, SVC_NAME});
     // on some platforms the exit code is in the high byte
     if (exitCode > 0xFF) {
         exitCode = (exitCode >> 8) & 0xFF;
