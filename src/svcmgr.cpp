@@ -6,12 +6,17 @@
 #include <QDebug>
 #include <QProcess>
 #include <QDir>
+#include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
 
 using namespace Qt::Literals::StringLiterals;
 
 #define CHECK_INTERVAL 5000
 #define SVC_NAME "mango-frunk"
 #define SVC_FILE "mango-frunk.service"
+#define SYSTEMCTL u"/usr/bin/systemctl"_s
 
 static const QString SERVICE_TEMPLATE{u"[Unit]\n"_s
                                       u"Description=%1\n"_s
@@ -71,90 +76,302 @@ void SvcMgr::installService()
     f.write(svcDef.toLatin1());
     f.close();
     qDebug() << "wrote svc def to" << f.fileName() << ", def:" << svcDef;
-    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"daemon-reload"_s});
-    if (exitCode != 0) {
-        qWarning() << "Failed to reload user service definitions!" << exitCode;
+
+    // Create a short-lived private connection to the session bus
+    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
+    if (!bus.isConnected()) {
+        qWarning() << "Failed to connect to session bus";
+	return;
     }
-    exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"enable"_s, u"--now"_s, SVC_FILE});
-    if (exitCode != 0) {
-        qWarning() << "Failed enable service!" << exitCode;
+
+    {
+        QDBusInterface systemd(
+            "org.freedesktop.systemd1",
+            "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager",
+            bus);
+        if (!systemd.isValid()) {
+            qWarning() << "Failed to create systemd interface";
+            QDBusConnection::disconnectFromBus(connName);
+	    return;
+        }
+
+	// systemctl --user daemon-reload
+        QDBusReply<void> reloadReply = systemd.call("Reload");
+	if (!reloadReply.isValid()) {
+		qWarning() << "Reload failed:" << reloadReply.error().message();
+		QDBusConnection::disconnectFromBus(connName);
+		return;
+	}
+
+        // systemctl --user enable something.service
+	QString unit = SVC_FILE;
+        QList<QString> files{unit};
+        QDBusReply<void> enableReply = systemd.call(
+            "EnableUnitFiles",
+	    files,
+            false, // runtime
+            true   // force
+        );
+        if (!enableReply.isValid()) {
+            qWarning() << "Enable failed:" << enableReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+            return;
+        }
+
+        // systemctl --user start something.service
+        QDBusReply<QDBusObjectPath> startReply = systemd.call(
+            "StartUnit",
+            unit,
+            "replace"
+        );
+        if (!startReply.isValid()) {
+            qWarning() << "Start failed:" << startReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+            return;
+        }
+
+        qDebug() << "Started job:" << startReply.value().path();
     }
-    check();
+    // Explicitly destroy the temporary connection
+    QDBusConnection::disconnectFromBus(connName);
 }
 
 void SvcMgr::uninstallService()
 {
-    auto dir = QDir::home();
-    dir.cd(u".config/systemd/user"_s);
-    if (!dir.exists(SVC_FILE)) {
-        qInfo() << "Service not installed!";
-        return;
+    QString unit = SVC_FILE;
+    QList<QString> files{unit};
+    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
+    if (!bus.isConnected()) {
+        qWarning() << "Failed to connect to session bus";
+	check();
+	return;
     }
-    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"disable"_s, u"--now"_s, SVC_FILE});
-    if (exitCode != 0) {
-        qWarning() << "Failed to disable service!" << exitCode;
-    }
-    dir.remove(SVC_FILE);
+    {
+        QDBusInterface systemd(
+            "org.freedesktop.systemd1",
+            "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager",
+            bus);
+        if (!systemd.isValid()) {
+            qWarning() << "Failed to create systemd interface";
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+	    return;
+        }
 
-    exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"daemon-reload"_s});
-    if (exitCode != 0) {
-        qWarning() << "Failed to reload user service definitions!" << exitCode;
+        // systemctl --user stop something.service
+        QDBusReply<QDBusObjectPath> stopReply = systemd.call(
+            "StopUnit",
+            unit,
+            "replace"
+        );
+        if (!stopReply.isValid()) {
+            qWarning() << "Stop failed:" << stopReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+            return;
+        }
+
+        // systemctl --user disable something.service
+        QDBusReply<void> disableReply = systemd.call("DisableUnitFiles", files, false);
+        if (!disableReply.isValid()) {
+            qWarning() << "Disable failed:" << disableReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+            return;
+        }
+
+	auto dir = QDir::home();
+	dir.cd(u".config/systemd/user"_s);
+	if (dir.exists(SVC_FILE)) {
+            dir.remove(SVC_FILE);
+	}
+
+	// systemctl --user daemon-reload
+        QDBusReply<void> reloadReply = systemd.call("Reload");
+	if (!reloadReply.isValid()) {
+		qWarning() << "Reload failed:" << reloadReply.error().message();
+		QDBusConnection::disconnectFromBus(connName);
+		check();
+		return;
+	}
     }
+    QDBusConnection::disconnectFromBus(connName);
     check();
 }
 
 void SvcMgr::startService()
 {
-    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"start"_s, SVC_FILE});
-    if (exitCode != 0) {
-        qWarning() << "Failed start service!" << exitCode;
+    QString unit = SVC_FILE;
+    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
+    if (!bus.isConnected()) {
+        qWarning() << "Failed to connect to session bus";
+	check();
+	return;
     }
+    {
+        QDBusInterface systemd(
+            "org.freedesktop.systemd1",
+            "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager",
+            bus);
+        if (!systemd.isValid()) {
+            qWarning() << "Failed to create systemd interface";
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+	    return;
+        }
+
+        // systemctl --user enable something.service
+	QString unit = SVC_FILE;
+        QList<QString> files{unit};
+        QDBusReply<void> enableReply = systemd.call(
+            "EnableUnitFiles",
+	    files,
+            false, // runtime
+            true   // force
+        );
+        if (!enableReply.isValid()) {
+            qWarning() << "Enable failed:" << enableReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+            return;
+        }
+
+        // systemctl --user start something.service
+        QDBusReply<QDBusObjectPath> startReply = systemd.call(
+            "StartUnit",
+            unit,
+            "replace"
+        );
+        if (!startReply.isValid()) {
+            qWarning() << "Start failed:" << startReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+            return;
+        }
+
+        qDebug() << "Started job:" << startReply.value().path();
+    }
+    QDBusConnection::disconnectFromBus(connName);
     check();
 }
 
 void SvcMgr::stopService()
 {
-    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--user"_s, u"stop"_s, SVC_FILE});
-    if (exitCode != 0) {
-        qWarning() << "Failed stop service!" << exitCode;
+    QString unit = SVC_FILE;
+    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
+    if (!bus.isConnected()) {
+        qWarning() << "Failed to connect to session bus";
+	check();
+	return;
     }
+    {
+        QDBusInterface systemd(
+            "org.freedesktop.systemd1",
+            "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager",
+            bus);
+        if (!systemd.isValid()) {
+            qWarning() << "Failed to create systemd interface";
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+	    return;
+        }
+
+        // systemctl --user stop something.service
+        QDBusReply<QDBusObjectPath> reply = systemd.call(
+            "StopUnit",
+            unit,
+            "replace"
+        );
+        if (!reply.isValid()) {
+            qWarning() << "Stop failed:" << reply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+	    check();
+            return;
+        }
+
+        qDebug() << "Stopped job:" << reply.value().path();
+    }
+    QDBusConnection::disconnectFromBus(connName);
     check();
 }
 
 void SvcMgr::check()
 {
-    auto exitCode = QProcess::execute(u"systemctl"_s, {u"--no-pager"_s, u"--user"_s, u"is-active"_s, SVC_NAME});
-    // on some platforms the exit code is in the high byte
-    if (exitCode > 0xFF) {
-        exitCode = (exitCode >> 8) & 0xFF;
+    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
+    if (!bus.isConnected()) {
+        qWarning() << "Failed to connect to session bus";
+	return;
     }
-    // service not found
-    if (exitCode == 4) {
-        m_installed = false;
-        m_running = false;
+
+    QString unit = SVC_FILE;
+    QString state;
+    {
+        QDBusInterface manager(
+            "org.freedesktop.systemd1",
+            "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager",
+            bus);
+        if (!manager.isValid()) {
+            qWarning() << "Failed to create manager interface";
+            QDBusConnection::disconnectFromBus(connName);
+	    return;
+        }
+
+        // Get the object path for the unit
+        QDBusReply<QDBusObjectPath> unitReply = manager.call("GetUnit", unit);
+        if (!unitReply.isValid()) {
+            qWarning() << "GetUnit failed:" << unitReply.error().message();
+	    m_installed = false;
+	    m_running = false;
+            QDBusConnection::disconnectFromBus(connName);
+	    emit stateChanged();
+	    return;
+        }
+	m_installed = true;
+
+        // Interface for the specific unit
+        QDBusInterface unitIface(
+            "org.freedesktop.systemd1",
+            unitReply.value().path(),
+            "org.freedesktop.DBus.Properties",
+            bus);
+        if (!unitIface.isValid()) {
+            qWarning() << "Failed to create unit interface";
+            QDBusConnection::disconnectFromBus(connName);
+	    return;
+        }
+
+        // Read ActiveState property
+        QDBusReply<QVariant> propReply = unitIface.call(
+            "Get",
+            "org.freedesktop.systemd1.Unit",
+            "ActiveState"
+        );
+        if (!propReply.isValid()) {
+            qWarning() << "Property read failed:" << propReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+	    return;
+        }
+
+        state = propReply.value().toString();
     }
-    // service not running
-    else if (exitCode == 3) {
-        m_installed = true;
-        m_running = false;
-    }
-    // unknown state
-    else if (exitCode != 0) {
-        m_installed = false;
-        m_running = false;
-    }
-    // all good! installed and running!
-    else {
-        m_installed = true;
-        m_running = true;
-    }
+    qInfo() << "Read state:" << state;
+    m_running = state == u"active"_s || state == u"activating"_s;
 
     // if we have a service file that also is "installed"
     auto dir = QDir::home();
     dir.cd(u".config/systemd/user"_s);
-    m_installed |= dir.exists(SVC_FILE);
+    m_installed = dir.exists(SVC_FILE);
 
-    qInfo() << "Service exit code:" << exitCode << "installed:" << m_installed
-            << ", running:" << m_running;
+    qInfo() << "Service installed:" << m_installed << ", running:" << m_running;
     emit stateChanged();
 }
