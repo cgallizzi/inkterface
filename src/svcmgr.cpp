@@ -70,11 +70,13 @@ void SvcMgr::installService()
     f.write(svcDef.toLatin1());
     f.close();
     qDebug() << "wrote svc def to" << f.fileName() << ", def:" << svcDef;
-    if (std::system("systemctl --user daemon-reload") != 0) {
-        qWarning() << "Failed to reload user service definitions!";
+    auto exitCode = std::system("systemctl --user daemon-reload");
+    if (exitCode != 0) {
+        qWarning() << "Failed to reload user service definitions!" << exitCode;
     }
-    if (std::system("systemctl --user enable --now " SVC_FILE) != 0) {
-        qWarning() << "Failed enable service!";
+    exitCode = std::system("systemctl --user enable --now " SVC_FILE);
+    if (exitCode != 0) {
+        qWarning() << "Failed enable service!" << exitCode;
     }
     check();
 }
@@ -141,6 +143,12 @@ void SvcMgr::check()
         m_installed = true;
         m_running = true;
     }
+
+    // if we have a service file that also is "installed"
+    auto dir = QDir::home();
+    dir.cd(u".config/systemd/user"_s);
+    m_installed |= dir.exists(SVC_FILE);
+
     qInfo() << "Service exit code:" << exitCode << "installed:" << m_installed
             << ", running:" << m_running;
     emit stateChanged();
