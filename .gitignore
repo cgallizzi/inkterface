@@ -1,4 +1,5 @@
 build*/
+dist*/
 include/config.h
 *AppDir/
 *AppImage

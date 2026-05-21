@@ -78,5 +78,6 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
         tar zcf ../mango-frunk-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
         popd
     fi
+    cp resources/launch.sh $DIST_DIR/.
     cp $DIST_DIR/mango-frunk-*.AppImage $DIST_DIR/mango-frunk.AppImage
 fi

@@ -49,6 +49,7 @@ void SvcMgr::installService()
         qWarning() << "Can only install service on linux hosts!";
         return;
     }
+    qInfo() << "using" << exePath << "for service";
 
     auto svcDef = SERVICE_TEMPLATE.arg(SVC_NAME, exePath, u" --headless"_s);
     auto dir = QDir::home();
@@ -68,6 +69,7 @@ void SvcMgr::installService()
     }
     f.write(svcDef.toLatin1());
     f.close();
+    qDebug() << "wrote svc def to" << f.fileName() << ", def:" << svcDef;
     if (std::system("systemctl --user daemon-reload") != 0) {
         qWarning() << "Failed to reload user service definitions!";
     }
