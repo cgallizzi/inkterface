@@ -82,6 +82,12 @@ class FrunkFinder : public QObject
     {
         m_stopping = true;
         m_discoveryAgent->stop();
+        for (auto frunk : std::as_const(m_frunks)) {
+            frunk->deleteLater();
+        }
+        m_frunks.clear();
+        m_frunkFound = false;
+	emit frunksChanged();
     }
 
   private slots:

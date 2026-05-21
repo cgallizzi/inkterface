@@ -40,6 +40,7 @@ class Frunk : public QObject
     void clearConnection();
     void onControllerStateChanged(QLowEnergyController::ControllerState state);
     void onControllerServicesDiscovered();
+    void onControllerError(QLowEnergyController::Error error);
     void onServiceStateChanged(QLowEnergyService::ServiceState state);
 
   private:

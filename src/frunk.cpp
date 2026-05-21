@@ -86,6 +86,13 @@ void Frunk::onControllerServicesDiscovered()
     m_service->discoverDetails();
 }
 
+void Frunk::onControllerError(QLowEnergyController::Error error)
+{
+	qDebug() << "controller error:" << error;
+	clearConnection();
+	m_ffinder->startDiscovery();
+}
+
 void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
 {
     qDebug() << "New service state: " << state;
@@ -190,29 +197,31 @@ void Frunk::connCheck()
     m_ffinder->stopDiscovery();
     m_connecting = true;
     m_device = frunk->bleInfo();
-    qDebug() << "Connecting to " << m_device.name();
+    qDebug() << "Connecting to " << m_device.name() << ", valid" << m_device.isValid() << ", cached" << m_device.isCached();
     m_controller = QLowEnergyController::createCentral(m_device, this);
-    connect(m_controller, &QLowEnergyController::stateChanged, this,
-            &Frunk::onControllerStateChanged);
-    connect(m_controller, &QLowEnergyController::discoveryFinished, this,
-            &Frunk::onControllerServicesDiscovered);
+    connect(m_controller, &QLowEnergyController::stateChanged, this, &Frunk::onControllerStateChanged);
+    connect(m_controller, &QLowEnergyController::discoveryFinished, this, &Frunk::onControllerServicesDiscovered);
+    connect(m_controller, &QLowEnergyController::errorOccurred, this, &Frunk::onControllerError);
     m_controller->connectToDevice();
 }
 
 void Frunk::clearConnection()
 {
     if (m_service) {
+	    qDebug() << "clearing service";
         m_service->disconnect(this);
         m_service->deleteLater();
         m_service = nullptr;
     }
     if (m_controller) {
+	    qDebug() << "clearing controller";
         m_controller->disconnect(this);
         m_controller->disconnectFromDevice();
         m_controller->deleteLater();
         m_controller = nullptr;
     }
     m_device = QBluetoothDeviceInfo();
+    m_connecting = false;
 }
 
 void Frunk::sendState()
