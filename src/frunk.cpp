@@ -19,6 +19,10 @@
 #define CONN_INTERVAL 2000
 #define SEND_INTERVAL 30000
 
+// durations that can trigger connection re-evaluation (in seconds)
+#define CONN_WARNING std::chrono::duration<double>(45)
+#define CONN_LOST std::chrono::duration<double>(60)
+
 using namespace Qt::Literals::StringLiterals;
 
 Frunk::Frunk(QObject *parent)
@@ -79,18 +83,23 @@ void Frunk::onControllerServicesDiscovered()
     m_service = m_controller->createServiceObject(SERVICE_UUID, this);
     if (!m_service) {
         qDebug() << "Failed to create service!";
-        m_controller->disconnectFromDevice();
+        clearConnection();
+        m_ffinder->startDiscovery();
         return;
     }
     connect(m_service, &QLowEnergyService::stateChanged, this, &Frunk::onServiceStateChanged);
+    connect(m_service, &QLowEnergyService::errorOccurred, this, &Frunk::onServiceError);
+    connect(m_service, &QLowEnergyService::characteristicWritten, this,
+            &Frunk::onServiceCharacteristicWritten);
     m_service->discoverDetails();
+    m_lastComms = std::chrono::steady_clock::now();
 }
 
 void Frunk::onControllerError(QLowEnergyController::Error error)
 {
-	qDebug() << "controller error:" << error;
-	clearConnection();
-	m_ffinder->startDiscovery();
+    qDebug() << "controller error:" << error;
+    clearConnection();
+    m_ffinder->startDiscovery();
 }
 
 void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
@@ -100,8 +109,22 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
         return;
     }
     qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
-
     m_sendTimer->start(250);
+    m_lastComms = std::chrono::steady_clock::now();
+}
+
+void Frunk::onServiceError(QLowEnergyService::ServiceError error)
+{
+    qDebug() << "service error:" << error;
+    clearConnection();
+    m_ffinder->startDiscovery();
+}
+
+void Frunk::onServiceCharacteristicWritten(
+    [[maybe_unused]] const QLowEnergyCharacteristic &characteristic,
+    [[maybe_unused]] const QByteArray &value)
+{
+    m_lastComms = std::chrono::steady_clock::now();
 }
 
 void Frunk::writeLine(const QUuid &uuid, const QString &value)
@@ -184,10 +207,17 @@ void Frunk::connCheck()
     bool matches = frunk->name() == m_device.name();
     bool found = m_ffinder->frunkFound();
     if (isConnected()) {
+        auto delta = std::chrono::steady_clock::now() - m_lastComms;
         if (!matches) {
             qDebug() << "Removing connection, doesn't match.";
             clearConnection();
             m_ffinder->startDiscovery();
+        } else if (delta > CONN_LOST) {
+            qWarning() << "Connection inactive for" << delta << ", removing!";
+            clearConnection();
+            m_ffinder->startDiscovery();
+        } else if (delta > CONN_WARNING) {
+            qWarning() << "Connection inactive for" << delta;
         }
         return;
     }
@@ -197,10 +227,13 @@ void Frunk::connCheck()
     m_ffinder->stopDiscovery();
     m_connecting = true;
     m_device = frunk->bleInfo();
-    qDebug() << "Connecting to " << m_device.name() << ", valid" << m_device.isValid() << ", cached" << m_device.isCached();
+    qDebug() << "Connecting to " << m_device.name() << ", valid" << m_device.isValid() << ", cached"
+             << m_device.isCached();
     m_controller = QLowEnergyController::createCentral(m_device, this);
-    connect(m_controller, &QLowEnergyController::stateChanged, this, &Frunk::onControllerStateChanged);
-    connect(m_controller, &QLowEnergyController::discoveryFinished, this, &Frunk::onControllerServicesDiscovered);
+    connect(m_controller, &QLowEnergyController::stateChanged, this,
+            &Frunk::onControllerStateChanged);
+    connect(m_controller, &QLowEnergyController::discoveryFinished, this,
+            &Frunk::onControllerServicesDiscovered);
     connect(m_controller, &QLowEnergyController::errorOccurred, this, &Frunk::onControllerError);
     m_controller->connectToDevice();
 }
@@ -208,13 +241,13 @@ void Frunk::connCheck()
 void Frunk::clearConnection()
 {
     if (m_service) {
-	    qDebug() << "clearing service";
+        qDebug() << "clearing service";
         m_service->disconnect(this);
         m_service->deleteLater();
         m_service = nullptr;
     }
     if (m_controller) {
-	    qDebug() << "clearing controller";
+        qDebug() << "clearing controller";
         m_controller->disconnect(this);
         m_controller->disconnectFromDevice();
         m_controller->deleteLater();

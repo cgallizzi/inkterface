@@ -42,6 +42,9 @@ class Frunk : public QObject
     void onControllerServicesDiscovered();
     void onControllerError(QLowEnergyController::Error error);
     void onServiceStateChanged(QLowEnergyService::ServiceState state);
+    void onServiceError(QLowEnergyService::ServiceError error);
+    void onServiceCharacteristicWritten(const QLowEnergyCharacteristic &characteristic,
+                                        const QByteArray &value);
 
   private:
     QLowEnergyController *m_controller = nullptr;
@@ -55,6 +58,7 @@ class Frunk : public QObject
     QTimer *m_sendTimer = nullptr;
     bool m_connecting = false;
     bool m_stopping = false;
+    std::chrono::time_point<std::chrono::steady_clock> m_lastComms;
 
     void writeLine(const QUuid &uuid, const QString &value);
     void writeKeyVal(const uint8_t &index, const QString &key, const QString &value);
