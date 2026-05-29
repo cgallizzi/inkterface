@@ -8,13 +8,20 @@
 #include <QSettings>
 #include <QUuid>
 
-#define SERVICE_UUID QUuid{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
-#define TOPLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
-#define MIDLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
-#define BOTLINE_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
-#define KEYVAL_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871903"}
-#define VECTOR_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
-#define FLUSH_UUID QUuid{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
+#define SERVICE_UUID                                                                               \
+    QUuid { "95c7b479-8e84-4ce7-a121-faf74bf48c84" }
+#define TOPLINE_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871900" }
+#define MIDLINE_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871901" }
+#define BOTLINE_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871902" }
+#define KEYVAL_UUID                                                                                \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871903" }
+#define VECTOR_UUID                                                                                \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871904" }
+#define FLUSH_UUID                                                                                 \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
 
 #define CONN_INTERVAL 2000
 #define SEND_INTERVAL 30000
@@ -129,6 +136,9 @@ void Frunk::onServiceCharacteristicWritten(
 
 void Frunk::writeLine(const QUuid &uuid, const QString &value)
 {
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
     auto c = m_service->characteristic(uuid);
     if (c.isValid()) {
         m_service->writeCharacteristic(c, value.left(42).toStdString().c_str());
@@ -137,6 +147,9 @@ void Frunk::writeLine(const QUuid &uuid, const QString &value)
 
 void Frunk::writeKeyVal(const uint8_t &index, const QString &key, const QString &value)
 {
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
     auto c = m_service->characteristic(KEYVAL_UUID);
     if (c.isValid()) {
         QByteArray ba;
@@ -152,6 +165,9 @@ void Frunk::writeKeyVal(const uint8_t &index, const QString &key, const QString 
 
 void Frunk::writePoints(const uint8_t &index, const FrunkField *field)
 {
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
     auto c = m_service->characteristic(VECTOR_UUID);
     if (c.isValid()) {
         QByteArray ba;
@@ -191,6 +207,9 @@ void Frunk::writePoints(const uint8_t &index, const FrunkField *field)
 
 void Frunk::flushDisplay()
 {
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
     auto c = m_service->characteristic(FLUSH_UUID);
     if (c.isValid()) {
         m_service->writeCharacteristic(
@@ -260,6 +279,9 @@ void Frunk::clearConnection()
 void Frunk::sendState()
 {
     if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
+        return;
+    }
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
         return;
     }
     if (!m_fstate->dirty()) {
