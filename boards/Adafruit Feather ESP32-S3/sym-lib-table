@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "Adafruit ESP32-S3 8MB No PSRAM-eagle-import") (type "KiCad") (uri "${KIPRJMOD}/Adafruit ESP32-S3 8MB No PSRAM-eagle-import.kicad_sym") (options "") (descr ""))
+)
