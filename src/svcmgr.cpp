@@ -1,15 +1,11 @@
 #include "svcmgr.hpp"
 
-#include <cstdlib>
-#include <filesystem>
-
-#include <QDebug>
-#include <QProcess>
-#include <QDir>
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDebug>
+#include <QDir>
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -82,37 +78,32 @@ void SvcMgr::installService()
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
-	return;
+        return;
     }
 
     {
-        QDBusInterface systemd(
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager",
-            bus);
+        QDBusInterface systemd("org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager", bus);
         if (!systemd.isValid()) {
             qWarning() << "Failed to create systemd interface";
             QDBusConnection::disconnectFromBus(connName);
-	    return;
+            return;
         }
 
-	// systemctl --user daemon-reload
+        // systemctl --user daemon-reload
         QDBusReply<void> reloadReply = systemd.call("Reload");
-	if (!reloadReply.isValid()) {
-		qWarning() << "Reload failed:" << reloadReply.error().message();
-		QDBusConnection::disconnectFromBus(connName);
-		return;
-	}
+        if (!reloadReply.isValid()) {
+            qWarning() << "Reload failed:" << reloadReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+            return;
+        }
 
         // systemctl --user enable something.service
-	QString unit = SVC_FILE;
+        QString unit = SVC_FILE;
         QList<QString> files{unit};
-        QDBusReply<void> enableReply = systemd.call(
-            "EnableUnitFiles",
-	    files,
-            false, // runtime
-            true   // force
+        QDBusReply<void> enableReply = systemd.call("EnableUnitFiles", files,
+                                                    false, // runtime
+                                                    true   // force
         );
         if (!enableReply.isValid()) {
             qWarning() << "Enable failed:" << enableReply.error().message();
@@ -121,11 +112,7 @@ void SvcMgr::installService()
         }
 
         // systemctl --user start something.service
-        QDBusReply<QDBusObjectPath> startReply = systemd.call(
-            "StartUnit",
-            unit,
-            "replace"
-        );
+        QDBusReply<QDBusObjectPath> startReply = systemd.call("StartUnit", unit, "replace");
         if (!startReply.isValid()) {
             qWarning() << "Start failed:" << startReply.error().message();
             QDBusConnection::disconnectFromBus(connName);
@@ -146,32 +133,25 @@ void SvcMgr::uninstallService()
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
-	check();
-	return;
+        check();
+        return;
     }
     {
-        QDBusInterface systemd(
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager",
-            bus);
+        QDBusInterface systemd("org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager", bus);
         if (!systemd.isValid()) {
             qWarning() << "Failed to create systemd interface";
             QDBusConnection::disconnectFromBus(connName);
-	    check();
-	    return;
+            check();
+            return;
         }
 
         // systemctl --user stop something.service
-        QDBusReply<QDBusObjectPath> stopReply = systemd.call(
-            "StopUnit",
-            unit,
-            "replace"
-        );
+        QDBusReply<QDBusObjectPath> stopReply = systemd.call("StopUnit", unit, "replace");
         if (!stopReply.isValid()) {
             qWarning() << "Stop failed:" << stopReply.error().message();
             QDBusConnection::disconnectFromBus(connName);
-	    check();
+            check();
             return;
         }
 
@@ -180,24 +160,24 @@ void SvcMgr::uninstallService()
         if (!disableReply.isValid()) {
             qWarning() << "Disable failed:" << disableReply.error().message();
             QDBusConnection::disconnectFromBus(connName);
-	    check();
+            check();
             return;
         }
 
-	auto dir = QDir::home();
-	dir.cd(u".config/systemd/user"_s);
-	if (dir.exists(SVC_FILE)) {
+        auto dir = QDir::home();
+        dir.cd(u".config/systemd/user"_s);
+        if (dir.exists(SVC_FILE)) {
             dir.remove(SVC_FILE);
-	}
+        }
 
-	// systemctl --user daemon-reload
+        // systemctl --user daemon-reload
         QDBusReply<void> reloadReply = systemd.call("Reload");
-	if (!reloadReply.isValid()) {
-		qWarning() << "Reload failed:" << reloadReply.error().message();
-		QDBusConnection::disconnectFromBus(connName);
-		check();
-		return;
-	}
+        if (!reloadReply.isValid()) {
+            qWarning() << "Reload failed:" << reloadReply.error().message();
+            QDBusConnection::disconnectFromBus(connName);
+            check();
+            return;
+        }
     }
     QDBusConnection::disconnectFromBus(connName);
     check();
@@ -210,48 +190,39 @@ void SvcMgr::startService()
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
-	check();
-	return;
+        check();
+        return;
     }
     {
-        QDBusInterface systemd(
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager",
-            bus);
+        QDBusInterface systemd("org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager", bus);
         if (!systemd.isValid()) {
             qWarning() << "Failed to create systemd interface";
             QDBusConnection::disconnectFromBus(connName);
-	    check();
-	    return;
+            check();
+            return;
         }
 
         // systemctl --user enable something.service
-	QString unit = SVC_FILE;
+        QString unit = SVC_FILE;
         QList<QString> files{unit};
-        QDBusReply<void> enableReply = systemd.call(
-            "EnableUnitFiles",
-	    files,
-            false, // runtime
-            true   // force
+        QDBusReply<void> enableReply = systemd.call("EnableUnitFiles", files,
+                                                    false, // runtime
+                                                    true   // force
         );
         if (!enableReply.isValid()) {
             qWarning() << "Enable failed:" << enableReply.error().message();
             QDBusConnection::disconnectFromBus(connName);
-	    check();
+            check();
             return;
         }
 
         // systemctl --user start something.service
-        QDBusReply<QDBusObjectPath> startReply = systemd.call(
-            "StartUnit",
-            unit,
-            "replace"
-        );
+        QDBusReply<QDBusObjectPath> startReply = systemd.call("StartUnit", unit, "replace");
         if (!startReply.isValid()) {
             qWarning() << "Start failed:" << startReply.error().message();
             QDBusConnection::disconnectFromBus(connName);
-	    check();
+            check();
             return;
         }
 
@@ -268,32 +239,25 @@ void SvcMgr::stopService()
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
-	check();
-	return;
+        check();
+        return;
     }
     {
-        QDBusInterface systemd(
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager",
-            bus);
+        QDBusInterface systemd("org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager", bus);
         if (!systemd.isValid()) {
             qWarning() << "Failed to create systemd interface";
             QDBusConnection::disconnectFromBus(connName);
-	    check();
-	    return;
+            check();
+            return;
         }
 
         // systemctl --user stop something.service
-        QDBusReply<QDBusObjectPath> reply = systemd.call(
-            "StopUnit",
-            unit,
-            "replace"
-        );
+        QDBusReply<QDBusObjectPath> reply = systemd.call("StopUnit", unit, "replace");
         if (!reply.isValid()) {
             qWarning() << "Stop failed:" << reply.error().message();
             QDBusConnection::disconnectFromBus(connName);
-	    check();
+            check();
             return;
         }
 
@@ -309,57 +273,48 @@ void SvcMgr::check()
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
-	return;
+        return;
     }
 
     QString unit = SVC_FILE;
     QString state;
     {
-        QDBusInterface manager(
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager",
-            bus);
+        QDBusInterface manager("org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager", bus);
         if (!manager.isValid()) {
             qWarning() << "Failed to create manager interface";
             QDBusConnection::disconnectFromBus(connName);
-	    return;
+            return;
         }
 
         // Get the object path for the unit
         QDBusReply<QDBusObjectPath> unitReply = manager.call("GetUnit", unit);
         if (!unitReply.isValid()) {
             qWarning() << "GetUnit failed:" << unitReply.error().message();
-	    m_installed = false;
-	    m_running = false;
+            m_installed = false;
+            m_running = false;
             QDBusConnection::disconnectFromBus(connName);
-	    emit stateChanged();
-	    return;
+            emit stateChanged();
+            return;
         }
-	m_installed = true;
+        m_installed = true;
 
         // Interface for the specific unit
-        QDBusInterface unitIface(
-            "org.freedesktop.systemd1",
-            unitReply.value().path(),
-            "org.freedesktop.DBus.Properties",
-            bus);
+        QDBusInterface unitIface("org.freedesktop.systemd1", unitReply.value().path(),
+                                 "org.freedesktop.DBus.Properties", bus);
         if (!unitIface.isValid()) {
             qWarning() << "Failed to create unit interface";
             QDBusConnection::disconnectFromBus(connName);
-	    return;
+            return;
         }
 
         // Read ActiveState property
-        QDBusReply<QVariant> propReply = unitIface.call(
-            "Get",
-            "org.freedesktop.systemd1.Unit",
-            "ActiveState"
-        );
+        QDBusReply<QVariant> propReply =
+            unitIface.call("Get", "org.freedesktop.systemd1.Unit", "ActiveState");
         if (!propReply.isValid()) {
             qWarning() << "Property read failed:" << propReply.error().message();
             QDBusConnection::disconnectFromBus(connName);
-	    return;
+            return;
         }
 
         state = propReply.value().toString();

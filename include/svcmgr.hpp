@@ -2,7 +2,6 @@
 #define SVCMGR_HPP
 
 #include <QObject>
-#include <QProcess>
 #include <QTimer>
 
 class SvcMgr : public QObject
