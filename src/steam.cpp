@@ -249,27 +249,43 @@ void Steam::watchConsoleLog(bool start)
             qDebug() << "Failed to open console_log.txt!";
             return;
         }
-        m_consoleLog->seek(m_consoleLog->size());
         if (!m_consoleTimer) {
             m_consoleTimer = new QTimer(this);
             m_consoleTimer->setSingleShot(false);
-            m_consoleTimer->setInterval(250);
+            m_consoleTimer->setInterval(1000);
             connect(m_consoleTimer, &QTimer::timeout, this, [&]() { watchConsoleLog(); });
         }
         m_consoleTimer->start();
     }
 
+    QString lastAppId;
+    bool appChanged = false;
     while (!m_consoleLog->atEnd()) {
         auto line = m_consoleLog->readLine();
         if (line.contains("] Game process added")) {
             line.slice(line.indexOf(": AppID ") + 8);
             line.truncate(line.indexOf(" "));
-            getAppDetails(line, true, false);
+            qDebug() << "saw start for:" << line;
+            if (line != m_runningApp.appid) {
+                lastAppId = line;
+                m_runningApp.clear();
+                m_runningApp.appid = line;
+                appChanged = true;
+            }
         } else if (line.contains("] Game process removed")) {
             line.slice(line.indexOf(": AppID ") + 8);
             line.truncate(line.indexOf(" "));
-            getAppDetails(line, false, true);
+            if (line == m_runningApp.appid) {
+                qDebug() << "saw stop for:" << line;
+                lastAppId = line;
+                m_runningApp.clear();
+                appChanged = true;
+            }
         }
+    }
+    if (appChanged) {
+        getAppDetails(lastAppId, !m_runningApp.appid.isEmpty(),
+                      m_runningApp.appid.isEmpty() && !lastAppId.isEmpty());
     }
 
     // "[2025-10-06 12:19:18] CAPIJobRequestUserStats - Server response failed 2\r\n"
