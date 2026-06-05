@@ -97,11 +97,11 @@ int Steam::installedAppCount()
     int result = 0;
     const auto libFolders = libraryFolders();
     for (const auto &folder : libFolders) {
-        const auto &libPath = folder.toMap().value(u"path"_s);
-        const auto &apps = folder.toMap().value(u"apps"_s).toMap();
-        for (auto it = apps.cbegin(), end = apps.cend(); it != end; ++it) {
-            const auto manifestPath =
-                u"%1/steamapps/appmanifest_%2.acf"_s.arg(libPath.toString(), it.key());
+        const auto &libPath = folder.toMap().value(u"path"_s).toString();
+        auto libDir = QDir(u"%1/steamapps"_s.arg(libPath));
+        auto manifests = libDir.entryList({u"appmanifest_*.acf"_s});
+        for (auto it = manifests.cbegin(), end = manifests.cend(); it != end; ++it) {
+            const auto manifestPath = u"%1/steamapps/%2"_s.arg(libPath, *it);
             if (!QFile::exists(manifestPath)) {
                 continue;
             }
