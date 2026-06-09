@@ -4,6 +4,7 @@
 
 #include <Adafruit_ThinkInk.h>
 #include <NimBLEDevice.h>
+#include <esp_sleep.h>
 
 #include "gaben.h"
 
@@ -335,6 +336,7 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 void setup()
 {
     Serial.begin(115200);
+    delay(5000);
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
@@ -367,9 +369,11 @@ void setup()
     characteristic = service->createCharacteristic(FLUSH_UUID, NIMBLE_PROPERTY::WRITE);
     characteristic->setCallbacks(&FLUSH_CALLBACKS);
 
-    service->start();
+    BLE_SERVER->start();
 
     Serial.println("initializing display");
+    pinMode(EPD_EN, OUTPUT);
+    digitalWrite(EPD_EN, HIGH);
     STATE.reset();
     MF_DISPLAY.begin(THINKINK_MONO);
     MF_DISPLAY.clearBuffer();
@@ -438,6 +442,13 @@ void loop()
     }
 
     LAST_MS = now;
+
+    // while (digitalRead(EPD_BUSY)) {
+    //   delay(1);
+    // }
+    // esp_sleep_enable_timer_wakeup(10 * 1000ULL);
+    // esp_light_sleep_start();
+    Serial.println("loop delay");
     delay(10);
 }
 
