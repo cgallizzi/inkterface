@@ -67,7 +67,7 @@ class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 };
 
 // ThinkInk_583_Mono_AAAMFGN MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
-CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
+CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, -1 /* SRAM_CS */, EPD_BUSY);
 
 static unsigned long DISP_DEBOUNCE = 0;
 
@@ -398,6 +398,7 @@ void setup()
     NimBLEDevice::startAdvertising();
 
     // just delaying here so folks can look at gabe for a bit
+    Serial.println("observing gabe");
     delay(2000);
 }
 
@@ -434,11 +435,14 @@ void loop()
     if (DISP_DEBOUNCE > 0 && DISP_DEBOUNCE > delta) {
         DISP_DEBOUNCE -= delta;
     } else if (DISP_DEBOUNCE > 0) {
+        Serial.println("drawing to display");
         DISP_DEBOUNCE = 0;
+        MF_DISPLAY.begin(THINKINK_MONO);
         MF_DISPLAY.clearBuffer();
         MF_DISPLAY.fillScreen(BG_COLOR);
         drawStatic();
         MF_DISPLAY.display();
+        MF_DISPLAY.powerDown();
     }
 
     LAST_MS = now;
@@ -446,9 +450,15 @@ void loop()
     // while (digitalRead(EPD_BUSY)) {
     //   delay(1);
     // }
+
+    // Serial.println("entering light sleep");
     // esp_sleep_enable_timer_wakeup(10 * 1000ULL);
-    // esp_light_sleep_start();
-    Serial.println("loop delay");
+    // esp_err_t err = esp_light_sleep_start();
+    // Serial.println("woke from light sleep");
+    // Serial.printf("After sleep, err=%s\n", esp_err_to_name(err));
+    // Serial.printf("Wake reason=%d\n", esp_sleep_get_wakeup_cause());
+    // delay(1);
+
     delay(10);
 }
 
