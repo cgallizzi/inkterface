@@ -1,11 +1,14 @@
 #include "svcmgr.hpp"
 
 #include <QCoreApplication>
+#include <QDebug>
+#include <QDir>
+
+#if defined(Q_OS_LINUX)
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
-#include <QDebug>
-#include <QDir>
+#endif
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -39,6 +42,7 @@ SvcMgr::SvcMgr(QObject *parent)
 
 void SvcMgr::installService()
 {
+#if defined(Q_OS_LINUX)
     auto exePath = QString(std::getenv("APPIMAGE"));
     if (exePath.isEmpty()) {
         try {
@@ -123,10 +127,12 @@ void SvcMgr::installService()
     }
     // Explicitly destroy the temporary connection
     QDBusConnection::disconnectFromBus(connName);
+#endif
 }
 
 void SvcMgr::uninstallService()
 {
+#if defined(Q_OS_LINUX)
     QString unit = SVC_FILE;
     QList<QString> files{unit};
     auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
@@ -181,10 +187,12 @@ void SvcMgr::uninstallService()
     }
     QDBusConnection::disconnectFromBus(connName);
     check();
+#endif
 }
 
 void SvcMgr::startService()
 {
+#if defined(Q_OS_LINUX)
     QString unit = SVC_FILE;
     auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
@@ -230,10 +238,12 @@ void SvcMgr::startService()
     }
     QDBusConnection::disconnectFromBus(connName);
     check();
+#endif
 }
 
 void SvcMgr::stopService()
 {
+#if defined(Q_OS_LINUX)
     QString unit = SVC_FILE;
     auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
@@ -265,10 +275,12 @@ void SvcMgr::stopService()
     }
     QDBusConnection::disconnectFromBus(connName);
     check();
+#endif
 }
 
 void SvcMgr::check()
 {
+#if defined(Q_OS_LINUX)
     auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
@@ -329,4 +341,5 @@ void SvcMgr::check()
 
     qInfo() << "Service installed:" << m_installed << ", running:" << m_running;
     emit stateChanged();
+#endif
 }
