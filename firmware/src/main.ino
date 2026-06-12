@@ -16,8 +16,6 @@
 #define VECTOR_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -80
-
 #define SPARKBOX_HEIGHT 100
 #define SPARKBOX_WIDTH 209
 
@@ -70,39 +68,6 @@ class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, -1 /* SRAM_CS */, EPD_BUSY);
 
 static unsigned long DISP_DEBOUNCE = 0;
-
-struct RssiWindow {
-    float avg = 0;
-    float collection[5] = {0};
-    int pos = 0;
-
-    void push(const float &rssi)
-    {
-        // ignore outliers
-        if (rssi < -90 || rssi >= 0) {
-            return;
-        }
-        auto size = sizeof(collection) / sizeof(collection[0]);
-        collection[pos] = rssi;
-        pos = (pos + 1) % size;
-        avg = 0;
-        for (int i = 0; i < size; ++i) {
-            avg += collection[i];
-        }
-        avg /= size;
-    }
-
-    void clear()
-    {
-        collection[0] = 0;
-        collection[1] = 0;
-        collection[2] = 0;
-        collection[3] = 0;
-        collection[4] = 0;
-        pos = 0;
-        avg = -100;
-    }
-} RSSI_WINDOW;
 
 struct Point {
     float x;
@@ -208,18 +173,10 @@ class ServerCallbacks : public NimBLEServerCallbacks
     void onConnect(NimBLEServer *server, NimBLEConnInfo &conn) override
     {
         Serial.println("got connection");
-        auto rssi = server->getClient(conn)->getRssi();
-        if (rssi < RSSI_LIMIT) {
-            Serial.print("rssi out of bounds, rejecting: ");
-            Serial.println(rssi);
-            server->disconnect(conn);
-        } else {
-            // we don't want any other devices to see us once we are connected
-            // to a host
-            NimBLEDevice::stopAdvertising();
-            RSSI_WINDOW.clear();
-            STATE.connected = true;
-        }
+        // we don't want any other devices to see us once we are connected
+        // to a host
+        NimBLEDevice::stopAdvertising();
+        STATE.connected = true;
     }
 
     void onDisconnect(NimBLEServer *server, NimBLEConnInfo &conn, int reason) override
@@ -234,7 +191,6 @@ class ServerCallbacks : public NimBLEServerCallbacks
             }
             STATE.reset();
         }
-        RSSI_WINDOW.clear();
         NimBLEDevice::startAdvertising();
     }
 } SERVER_CALLBACKS;
@@ -405,7 +361,6 @@ void setup()
 void loop()
 {
     static unsigned long LAST_MS = 0;
-    static unsigned long RSSI_DEBOUNCE = 200;
 
     auto now = millis();
     auto delta = now - LAST_MS;
@@ -413,23 +368,6 @@ void loop()
         // handling rollover
         Serial.println("handling time rollover");
         delta = (std::numeric_limits<unsigned long>::max() - LAST_MS) + now;
-    }
-
-    if (RSSI_DEBOUNCE > 0 && RSSI_DEBOUNCE > delta) {
-        RSSI_DEBOUNCE -= delta;
-    } else if (RSSI_DEBOUNCE > 0) {
-        RSSI_DEBOUNCE = 200;
-        auto peers = BLE_SERVER->getPeerDevices();
-        for (auto peer : peers) {
-            auto rssi = BLE_SERVER->getClient(peer)->getRssi();
-            RSSI_WINDOW.push(rssi);
-            if (RSSI_WINDOW.avg < RSSI_LIMIT) {
-                Serial.print("rssi out of bounds, disconnecting: ");
-                Serial.println(RSSI_WINDOW.avg);
-                BLE_SERVER->disconnect(peer);
-            }
-            break;
-        }
     }
 
     if (DISP_DEBOUNCE > 0 && DISP_DEBOUNCE > delta) {
