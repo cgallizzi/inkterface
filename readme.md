@@ -64,29 +64,12 @@ You may need to hit the reset button on the back of the panel once you have it
 next to the SteamOS host machine in case it's already connected somewhere else.
 
 
-## Design Docs
-
-Planning out the UI and panel design is done in a Lunacy document you can find
-in the `./design` folder.
-
-Lunacy is an open source alternative to tools like Figma that can work entirely
-offline.
-
-
-## Building Firmware
-
-1. Install [PlatformIO](https://platformio.org) for your system.
-2. Navigate a terminal to the `./firmware` directory of this repo.
-3. Run `pio run -t upload`
-    * You need to have an ESP32-S3 Feather connected and it should build and flash.
-
-
 ## Building Interface
 
 If you have Qt installed you should be able to open the cmake project in Qt Creator
 and that will should work for you!
 
-For better distributable builds You can setup a container for wider platform
+For better distributable builds you can setup a container for wider platform
 support using the included `Containerfile`.
 
 1. `podman build -t qt69-builder -f ./Containerfile`
@@ -98,3 +81,29 @@ That should produce an AppImage for you in the `./dist-linux-x86_64` folder!
 
 This container uses an older version of Ubuntu and Qt 6.9 which should let us
 build AppImages that will work on a wide range of modern systems.
+
+
+## Building Firmware
+
+If you're using the container from above you can just do:
+
+1. `distrobox enter qt69`
+2. `cd ./firmware`
+3. `pio run -t upload`
+
+And it should build and flash the firmware, if you want to get setup manually:
+
+1. Install [PlatformIO](https://platformio.org) for your system.
+2. `cd ./firmware`
+3. `pio run -t upload`
+
+Of course in both cases you need to have the ESP32 Feather attached via USB and
+permission to interact with serial devices on your system!
+
+## Design Docs
+
+Planning out the UI and panel design is done in a Lunacy document you can find
+in the `./design` folder.
+
+Lunacy is an open source alternative to tools like Figma that can work entirely
+offline.
