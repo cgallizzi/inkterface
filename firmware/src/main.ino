@@ -19,10 +19,10 @@
 #define SPARKBOX_HEIGHT 100
 #define SPARKBOX_WIDTH 209
 
-#define INTERFACE_VERSION "FRv01"
+#define INTERFACE_VERSION "IFv01"
 
 NimBLEServer *BLE_SERVER = nullptr;
-std::string BLE_NAME = "FRUNK";
+std::string BLE_NAME = "INKTF";
 
 bool INVERTED = false;
 #define FG_COLOR (INVERTED ? EPD_WHITE : EPD_BLACK)
@@ -136,7 +136,7 @@ struct State {
 
         uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
         std::stringstream name;
-        name << "FRUNK-";
+        name << "INKTF-";
         name << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << addr;
         BLE_NAME = name.str();
 
@@ -341,7 +341,7 @@ void setup()
     Serial.println("starting ble advert");
     uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
     std::stringstream name;
-    name << "FRUNK-";
+    name << "INKTF-";
     name << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << addr;
     BLE_NAME = name.str();
     BLEAdvertising *advert = NimBLEDevice::getAdvertising();

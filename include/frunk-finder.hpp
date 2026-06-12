@@ -31,7 +31,7 @@ class FrunkInfo : public QObject
     QString name() const { return m_info.name(); }
     qint16 rssi() const { return m_info.rssi(); }
     QString ifaceVersion() const { return QString::fromLatin1(m_info.manufacturerData(0x055d)); }
-    bool supported() const { return ifaceVersion() == u"FRv01"_s; }
+    bool supported() const { return ifaceVersion() == u"IFv01"_s; }
     const QBluetoothDeviceInfo &bleInfo() const { return m_info; }
 
   private:
@@ -87,7 +87,7 @@ class FrunkFinder : public QObject
         }
         m_frunks.clear();
         m_frunkFound = false;
-	emit frunksChanged();
+        emit frunksChanged();
     }
 
   private slots:

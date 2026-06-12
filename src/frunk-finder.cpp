@@ -35,7 +35,7 @@ void FrunkFinder::onDiscoveryEnded()
     auto frunkName = m_placeholderFrunk->name();
     const auto devices = m_discoveryAgent->discoveredDevices();
     for (const auto &info : devices) {
-        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"FRUNK-"_s)) {
+        if (!info.isValid() || info.isCached() || !info.name().startsWith(u"INKTF-"_s)) {
             continue;
         }
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
