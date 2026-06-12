@@ -1,3 +1,4 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,11 +8,22 @@ ApplicationWindow {
     id: rootWindow
 
     color: "#4d5845"
-    minimumHeight: 720
-    // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
-    minimumWidth: 1280
-    title: `${Qt.application.displayName} (v${Qt.application.version})`
+    height: Math.min(720, Screen.height)
+    minimumHeight: Math.min(720, Screen.height)
+    minimumWidth: Math.min(720, Screen.width)
+    title: `${Qt.application.displayName} (${Qt.application.version})`
     visible: true
+    width: Math.min(1280, Screen.width)
+
+    Component.onCompleted: {
+        if (settings.value("panelName") === "") {
+            pageLoader.source = "PanelListPage.qml";
+        } else {
+            pageLoader.source = "PanelConfigPage.qml";
+        }
+    }
+
+    // visibility: Qt.platform.os === "linux" ? Window.FullScreen : Window.Windowed
 
     Item {
         id: focusThief
@@ -26,41 +38,35 @@ ApplicationWindow {
         onClicked: focusThief.forceActiveFocus()
     }
 
-    Flow {
-        anchors.centerIn: parent
-        spacing: 10
+    Settings {
+        id: settings
 
-        VBoxedReadout {
-            title: "CPU dC"
-            value: "120dC"
-        }
-
-        VSparkline {
-            title: "GPU dC"
-            value: "50dC"
-        }
     }
 
-    VButton {
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.margins: 10
-        text: exitDebounce.running ? "Are you sure?" : "Exit App"
+    Loader {
+        id: pageLoader
 
-        onClicked: {
-            if (exitDebounce.running)
-                Qt.callLater(Qt.quit);
-            else
-                exitDebounce.restart();
+        anchors.fill: parent
+    }
+
+    Connections {
+        function onError(message) {
+            toast.showError(message);
         }
 
-        Timer {
-            id: exitDebounce
-
-            interval: 3000
-            repeat: false
-            running: false
+        function onNotification(message) {
+            toast.showNotification(message);
         }
+
+        function onPanelCleared() {
+            pageLoader.source = "PanelListPage.qml";
+        }
+
+        function onPanelSelected() {
+            pageLoader.source = "PanelConfigPage.qml";
+        }
+
+        target: pageLoader.item
     }
 
     VToast {

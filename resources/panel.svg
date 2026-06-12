@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="500" height="420" viewBox="0 0 500 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <g fill="#2C2B25" fill-rule="evenodd">
+      <rect width="500" height="420" />
+      <path d="M500 0L0 0L0 420L500 420L500 0ZM4 416L4 4L496 4L496 416L4 416Z" fill="#000000" fill-rule="evenodd" />
+    </g>
+    <g fill="#DDDDDD" fill-rule="evenodd" transform="translate(37 37)">
+      <rect width="426" height="346" />
+      <path d="M426 0L0 0L0 346L426 346L426 0ZM4 342L4 4L422 4L422 342L4 342Z" fill="#000000" fill-rule="evenodd" />
+    </g>
+    <path d="M3 0L59 0C60.6571 0 62 1.34292 62 3L62 59C62 60.6571 60.6571 62 59 62L3 62C1.34292 62 0 60.6571 0 59L0 3C0 1.34292 1.34292 0 3 0L3 0Z" fill="#333333" transform="translate(52 52)" />
+    <path d="M23 0L23 0C35.7043 0 46 10.2957 46 23L46 23C46 35.7043 35.7043 46 23 46L23 46C10.2957 46 0 35.7043 0 23L0 23C0 10.2957 10.2957 0 23 0L23 0Z" fill="#DDDDDD" transform="translate(60 60)" />
+    <path d="M17 0L17 0C26.3901 0 34 7.60988 34 17L34 17C34 26.3901 26.3901 34 17 34L17 34C7.60988 34 0 26.3901 0 17L0 17C0 7.60988 7.60988 0 17 0L17 0Z" fill="#333333" transform="translate(66 66)" />
+  </g>
+</svg>

@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "Adafruit eInk Feather Friend-eagle-import") (type "KiCad") (uri "${KIPRJMOD}/Adafruit eInk Feather Friend-eagle-import.kicad_sym") (options "") (descr ""))
+)

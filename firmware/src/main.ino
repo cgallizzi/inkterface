@@ -4,6 +4,7 @@
 
 #include <Adafruit_ThinkInk.h>
 #include <NimBLEDevice.h>
+#include <esp_sleep.h>
 
 #include "gaben.h"
 
@@ -15,13 +16,17 @@
 #define VECTOR_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
 #define FLUSH_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
 
-#define RSSI_LIMIT -80
-
 #define SPARKBOX_HEIGHT 100
 #define SPARKBOX_WIDTH 209
 
+#define INTERFACE_VERSION "IFv01"
+
 NimBLEServer *BLE_SERVER = nullptr;
-std::string BLE_NAME = "MANGOFRUNK";
+std::string BLE_NAME = "INKTF";
+
+bool INVERTED = false;
+#define FG_COLOR (INVERTED ? EPD_WHITE : EPD_BLACK)
+#define BG_COLOR (INVERTED ? EPD_BLACK : EPD_WHITE)
 
 class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 {
@@ -60,42 +65,9 @@ class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 };
 
 // ThinkInk_583_Mono_AAAMFGN MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
-CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
+CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, -1 /* SRAM_CS */, EPD_BUSY);
 
 static unsigned long DISP_DEBOUNCE = 0;
-
-struct RssiWindow {
-    float avg = 0;
-    float collection[5] = {0};
-    int pos = 0;
-
-    void push(const float &rssi)
-    {
-        // ignore outliers
-        if (rssi < -90 || rssi >= 0) {
-            return;
-        }
-        auto size = sizeof(collection) / sizeof(collection[0]);
-        collection[pos] = rssi;
-        pos = (pos + 1) % size;
-        avg = 0;
-        for (int i = 0; i < size; ++i) {
-            avg += collection[i];
-        }
-        avg /= size;
-    }
-
-    void clear()
-    {
-        collection[0] = 0;
-        collection[1] = 0;
-        collection[2] = 0;
-        collection[3] = 0;
-        collection[4] = 0;
-        pos = 0;
-        avg = -100;
-    }
-} RSSI_WINDOW;
 
 struct Point {
     float x;
@@ -112,7 +84,26 @@ struct Point {
     {
     }
 };
-typedef std::vector<Point> Points;
+
+struct Points {
+    float yMin;
+    float yMax;
+    std::vector<Point> points;
+
+    Points()
+        : yMin(0)
+        , yMax(0)
+        , points()
+    {
+    }
+
+    void clear()
+    {
+        yMin = 0;
+        yMax = 0;
+        points.clear();
+    }
+};
 
 struct KeyVal {
     std::string key;
@@ -143,9 +134,15 @@ struct State {
         sparks.clear();
         sparks.resize(6);
 
+        uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
+        std::stringstream name;
+        name << "INKTF-";
+        name << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << addr;
+        BLE_NAME = name.str();
+
         connected = false;
         topLine = "Waiting on connection...";
-        midLine = "";
+        midLine = BLE_NAME;
         botLine = "";
         hostMsg = "";
         keyvals[0].key = "OS";
@@ -164,8 +161,8 @@ struct State {
         keyvals[6].val = "--%";
         keyvals[7].key = "GPU";
         keyvals[7].val = "--%";
-        keyvals[8].key = "FPS";
-        keyvals[8].val = "--";
+        keyvals[8].key = "MEM";
+        keyvals[8].val = "--%";
     }
 } STATE;
 
@@ -176,18 +173,10 @@ class ServerCallbacks : public NimBLEServerCallbacks
     void onConnect(NimBLEServer *server, NimBLEConnInfo &conn) override
     {
         Serial.println("got connection");
-        auto rssi = server->getClient(conn)->getRssi();
-        if (rssi < RSSI_LIMIT) {
-            Serial.print("rssi out of bounds, rejecting: ");
-            Serial.println(rssi);
-            server->disconnect(conn);
-        } else {
-            // we don't want any other devices to see us once we are connected
-            // to a host
-            NimBLEDevice::stopAdvertising();
-            RSSI_WINDOW.clear();
-            STATE.connected = true;
-        }
+        // we don't want any other devices to see us once we are connected
+        // to a host
+        NimBLEDevice::stopAdvertising();
+        STATE.connected = true;
     }
 
     void onDisconnect(NimBLEServer *server, NimBLEConnInfo &conn, int reason) override
@@ -202,7 +191,6 @@ class ServerCallbacks : public NimBLEServerCallbacks
             }
             STATE.reset();
         }
-        RSSI_WINDOW.clear();
         NimBLEDevice::startAdvertising();
     }
 } SERVER_CALLBACKS;
@@ -258,8 +246,10 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
     typedef struct __attribute__((packed)) {
         uint8_t index;
         uint8_t count;
-        uint16_t values[32 * 2]; // 32 (x, y) pairs, 128 bytes
-        // total 130 bytes, larger than our MTU so should be big enough for max points
+        float minVal;
+        float maxVal;
+        uint8_t values[32 * 2]; // 32 (x, y) pairs, 64 bytes
+        // total 74 bytes
     } Msg;
 
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
@@ -272,11 +262,16 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
             Serial.print(msg.index);
             Serial.print(") with ");
             Serial.print(msg.count);
-            Serial.println(" values");
+            Serial.print(" values, min ");
+            Serial.print(msg.minVal);
+            Serial.print(", max ");
+            Serial.println(msg.maxVal);
             STATE.sparks[msg.index].clear();
+            STATE.sparks[msg.index].yMin = msg.minVal;
+            STATE.sparks[msg.index].yMax = msg.maxVal;
             for (int i = 0; i < msg.count; i += 2) {
-                STATE.sparks[msg.index].emplace_back(msg.values[i] / 65535.0,
-                                                     msg.values[i + 1] / 65535.0);
+                STATE.sparks[msg.index].points.emplace_back(msg.values[i] / 255.0,
+                                                            msg.values[i + 1] / 255.0);
             }
         } else {
             Serial.print("got bad vectors write, size: ");
@@ -296,22 +291,13 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 
 void setup()
 {
-    STATE.reset();
-
     Serial.begin(115200);
-
-    Serial.println("initializing display");
-    MF_DISPLAY.begin(THINKINK_MONO);
-    MF_DISPLAY.clearBuffer();
-    MF_DISPLAY.fillScreen(EPD_WHITE);
-    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, EPD_BLACK);
-    MF_DISPLAY.display();
-    DISP_DEBOUNCE = 10;
+    delay(5000);
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
     NimBLEDevice::setPower(2); // we don't need much power
-    NimBLEDevice::setMTU(128); // bump the mtu to fit a decent number of points
+    NimBLEDevice::setMTU(256); // bump the mtu to fit a decent number of points
     BLE_SERVER = NimBLEDevice::createServer();
     BLE_SERVER->setCallbacks(&SERVER_CALLBACKS);
     BLEService *service = BLE_SERVER->createService(SERVICE_UUID);
@@ -339,31 +325,42 @@ void setup()
     characteristic = service->createCharacteristic(FLUSH_UUID, NIMBLE_PROPERTY::WRITE);
     characteristic->setCallbacks(&FLUSH_CALLBACKS);
 
-    service->start();
+    BLE_SERVER->start();
+
+    Serial.println("initializing display");
+    pinMode(EPD_EN, OUTPUT);
+    digitalWrite(EPD_EN, HIGH);
+    STATE.reset();
+    MF_DISPLAY.begin(THINKINK_MONO);
+    MF_DISPLAY.clearBuffer();
+    MF_DISPLAY.fillScreen(BG_COLOR);
+    MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, FG_COLOR);
+    MF_DISPLAY.display();
+    DISP_DEBOUNCE = 10;
 
     Serial.println("starting ble advert");
+    uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
     std::stringstream name;
-    name << "MANGOFRUNK-";
-    name << std::uppercase << std::hex << std::setfill('0') << std::setw(12)
-         << NimBLEDevice::getAddress();
+    name << "INKTF-";
+    name << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << addr;
     BLE_NAME = name.str();
     BLEAdvertising *advert = NimBLEDevice::getAdvertising();
     BLEAdvertisementData ad_data{};
     ad_data.setName(BLE_NAME);
-    ad_data.setManufacturerData("\x5d\x05MFv001");
+    ad_data.setManufacturerData("\x5d\x05" INTERFACE_VERSION);
     advert->setAdvertisementData(ad_data);
     advert->addServiceUUID(SERVICE_UUID);
     advert->enableScanResponse(false);
     NimBLEDevice::startAdvertising();
 
     // just delaying here so folks can look at gabe for a bit
+    Serial.println("observing gabe");
     delay(2000);
 }
 
 void loop()
 {
     static unsigned long LAST_MS = 0;
-    static unsigned long RSSI_DEBOUNCE = 200;
 
     auto now = millis();
     auto delta = now - LAST_MS;
@@ -373,53 +370,53 @@ void loop()
         delta = (std::numeric_limits<unsigned long>::max() - LAST_MS) + now;
     }
 
-    if (RSSI_DEBOUNCE > 0 && RSSI_DEBOUNCE > delta) {
-        RSSI_DEBOUNCE -= delta;
-    } else if (RSSI_DEBOUNCE > 0) {
-        RSSI_DEBOUNCE = 200;
-        auto peers = BLE_SERVER->getPeerDevices();
-        for (auto peer : peers) {
-            auto rssi = BLE_SERVER->getClient(peer)->getRssi();
-            RSSI_WINDOW.push(rssi);
-            if (RSSI_WINDOW.avg < RSSI_LIMIT) {
-                Serial.print("rssi out of bounds, disconnecting: ");
-                Serial.println(RSSI_WINDOW.avg);
-                BLE_SERVER->disconnect(peer);
-            }
-            break;
-        }
-    }
-
     if (DISP_DEBOUNCE > 0 && DISP_DEBOUNCE > delta) {
         DISP_DEBOUNCE -= delta;
     } else if (DISP_DEBOUNCE > 0) {
+        Serial.println("drawing to display");
         DISP_DEBOUNCE = 0;
+        MF_DISPLAY.begin(THINKINK_MONO);
         MF_DISPLAY.clearBuffer();
+        MF_DISPLAY.fillScreen(BG_COLOR);
         drawStatic();
         MF_DISPLAY.display();
+        MF_DISPLAY.powerDown();
     }
 
     LAST_MS = now;
+
+    // while (digitalRead(EPD_BUSY)) {
+    //   delay(1);
+    // }
+
+    // Serial.println("entering light sleep");
+    // esp_sleep_enable_timer_wakeup(10 * 1000ULL);
+    // esp_err_t err = esp_light_sleep_start();
+    // Serial.println("woke from light sleep");
+    // Serial.printf("After sleep, err=%s\n", esp_err_to_name(err));
+    // Serial.printf("Wake reason=%d\n", esp_sleep_get_wakeup_cause());
+    // delay(1);
+
     delay(10);
 }
 
 void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
-              const uint8_t &size = 1, const uint16_t &color = EPD_BLACK, const bool &wrap = false)
+              const uint8_t &size = 1, const bool &wrap = false)
 {
     if (x >= 0 && y >= 0) {
         MF_DISPLAY.setCursor(x, y);
     }
     MF_DISPLAY.setTextSize(size);
-    MF_DISPLAY.setTextColor(color);
+    MF_DISPLAY.setTextColor(FG_COLOR);
     MF_DISPLAY.setTextWrap(wrap);
     MF_DISPLAY.print(text);
 }
 
 void drawLogo(int16_t &x, const int16_t &y = 0)
 {
-    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 3, EPD_BLACK);
-    MF_DISPLAY.fillCircle(x + 50, y + 50, 31, EPD_WHITE);
-    MF_DISPLAY.fillCircle(x + 50, y + 50, 23, EPD_BLACK);
+    MF_DISPLAY.fillRoundRect(x, y, 101, 101, 3, FG_COLOR);
+    MF_DISPLAY.fillCircle(x + 50, y + 50, 31, BG_COLOR);
+    MF_DISPLAY.fillCircle(x + 50, y + 50, 23, FG_COLOR);
     x += 101;
 }
 
@@ -431,30 +428,40 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
     const int16_t hpad = 8;
     const int16_t vpad = 6;
     const int16_t title_h = 26;
-    const int16_t graph_h = (h - title_h) - 20;
+    const int16_t graph_h = (h - title_h) - 32;
     const int16_t graph_w = w - 20;
     const int16_t graph_x = x + 10;
-    const int16_t graph_y = (y + h) - 10;
+    const int16_t graph_y = (y + h) - 16;
 
     if (!title.empty()) {
-        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
-        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, EPD_BLACK);
-        MF_DISPLAY.fillRect(x, y + title_h, w, 1, EPD_BLACK);
+        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, FG_COLOR);
+        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, FG_COLOR);
+        MF_DISPLAY.fillRect(x, y + title_h, w, 1, FG_COLOR);
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
 
-        if (points.size() >= 2) {
+        std::stringstream maxstrm;
+        maxstrm << std::fixed << std::setprecision(0) << points.yMax;
+        auto maxstr = maxstrm.str();
+        drawText(maxstr.c_str(), x + hpad, y + title_h + vpad);
+
+        std::stringstream minstrm;
+        minstrm << std::fixed << std::setprecision(0) << points.yMin;
+        auto minstr = minstrm.str();
+        drawText(minstr.c_str(), x + hpad, y + h - (vpad + 7));
+
+        if (points.points.size() >= 2) {
             int16_t s_x = 0.0, s_y = 0.0, e_x = 0.0, e_y = 0.0;
-            for (auto p = points.cbegin(); p != points.cend() - 1; ++p) {
+            for (auto p = points.points.cbegin(); p != points.points.cend() - 1; ++p) {
                 s_x = graph_x + (p->x * graph_w);
                 e_x = graph_x + ((p + 1)->x * graph_w);
                 s_y = graph_y + (p->y * graph_h * -1.0);
                 e_y = graph_y + ((p + 1)->y * graph_h * -1.0);
-                MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x, s_y - 1, e_x, e_y - 1, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x, s_y + 1, e_x, e_y + 1, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x - 1, s_y, e_x - 1, e_y, EPD_BLACK);
-                MF_DISPLAY.drawLine(s_x + 1, s_y, e_x + 1, e_y, EPD_BLACK);
+                MF_DISPLAY.drawLine(s_x, s_y, e_x, e_y, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x, s_y - 1, e_x, e_y - 1, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x, s_y + 1, e_x, e_y + 1, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x - 1, s_y, e_x - 1, e_y, FG_COLOR);
+                MF_DISPLAY.drawLine(s_x + 1, s_y, e_x + 1, e_y, FG_COLOR);
             }
         }
     }
@@ -471,8 +478,8 @@ void drawDiscreteBox(int16_t &x, const int16_t &y, const std::string &title,
     const int16_t vpad = 6;
 
     if (!title.empty()) {
-        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, EPD_BLACK);
-        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, EPD_BLACK);
+        MF_DISPLAY.drawRoundRect(x, y, w, h, 4, FG_COLOR);
+        MF_DISPLAY.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 4, FG_COLOR);
         drawText(title.c_str(), x + hpad, y + vpad, 2);
         drawText(value.c_str(), (x + (w - hpad)) - (12 * strlen(value.c_str())), y + vpad, 2);
     }
@@ -528,7 +535,7 @@ void drawStatic()
 
     // version tag
     std::stringstream tag;
-    tag << BLE_NAME << " " << GIT_REVISION;
+    tag << BLE_NAME << " " << GIT_REVISION << " " << INTERFACE_VERSION;
     x = 4;
     y = MF_DISPLAY.height() - 12;
     drawText(tag.str().c_str(), x, y);

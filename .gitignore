@@ -1,4 +1,5 @@
 build*/
+dist*/
 include/config.h
 *AppDir/
 *AppImage
@@ -6,3 +7,8 @@ include/config.h
 .pio/
 sdkconfig.*
 !sdkconfig.defaults*
+.rcc/
+.qt/
+CMakeFiles/
+meta_types/
+*.user

@@ -1,7 +1,4 @@
 #include <cstdlib>
-#include <filesystem>
-#include <iostream>
-#include <thread>
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -15,52 +12,33 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QSettings>
 #include <QTimer>
 
 #include "config.h"
-#include "frunk.hpp"
+#include "loghandler.hpp"
+#include "panel-finder.hpp"
+#include "panel-state.hpp"
+#include "panel.hpp"
+#include "svcmgr.hpp"
 #include "unsig.hpp"
 
 #define EXIT_SUCCESS 0
 
 using namespace Qt::Literals::StringLiterals;
 
-static const QString SERVICE_TEMPLATE{u"[Unit]\n"_s
-                                      u"Description=mango-frunk\n"_s
-                                      u"After=network.target\n"_s
-                                      u"\n"_s
-                                      u"[Service]\n"_s
-                                      u"Type=simple\n"_s
-                                      u"ExecStart=%1%2\n"_s
-                                      u"Restart=on-failure\n"_s
-                                      u"\n"_s
-                                      u"[Install]\n"_s
-                                      u"WantedBy=default.target\n"_s};
-
 bool registerFonts()
 {
     bool success = true;
     QString prefix = u":/%1/resources/IBM_Plex_Mono/"_s.arg(QML_URI);
-    for (const QString &f : QDir(prefix).entryList({u"*.ttf"_s})) {
+    const auto entries = QDir(prefix).entryList({u"*.ttf"_s});
+    for (const QString &f : entries) {
         if (QFontDatabase::addApplicationFont(prefix + f) == -1) {
             success = false;
             break;
         }
     }
     return success;
-}
-
-QString getExecutablePath()
-{
-    auto appImage = std::getenv("APPIMAGE");
-    if (appImage) {
-        return {appImage};
-    }
-    try {
-        return {std::filesystem::canonical("/proc/self/exe").c_str()};
-    } catch (const std::exception &ex) {
-        return {""};
-    }
 }
 
 int runUi(int argc, char *argv[])
@@ -72,6 +50,8 @@ int runUi(int argc, char *argv[])
     app.setOrganizationDomain(ORG_DOMAIN);
     app.setApplicationVersion(PROJECT_GITREV);
     app.setWindowIcon(QIcon(u":/%1/resources/icon.png"_s.arg(QML_URI)));
+    QSettings settings;
+    qDebug() << "Settings stored in:" << settings.fileName();
 
     QQuickStyle::setStyle("Basic");
     if (!registerFonts()) {
@@ -85,7 +65,16 @@ int runUi(int argc, char *argv[])
     }
 
     QQmlApplicationEngine engine(&app);
-    // QQmlContext *ctx = engine.rootContext();
+    QQmlContext *ctx = engine.rootContext();
+
+    PanelFinder *panelFinder = new PanelFinder(&app);
+    ctx->setContextProperty("panelFinder", panelFinder);
+
+    SvcMgr *svcMgr = new SvcMgr(&app);
+    ctx->setContextProperty("svcMgr", svcMgr);
+
+    PanelState *fs = new PanelState(&app);
+    ctx->setContextProperty("panelState", fs);
 
     const QUrl url(u"qrc:/%1/qml/main.qml"_s.arg(QML_URI));
     QObject::connect(
@@ -102,7 +91,7 @@ int runUi(int argc, char *argv[])
     return app.exec();
 }
 
-int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
+int runHeadless(int argc, char *argv[])
 {
     qDebug() << "Running headless...";
     QCoreApplication app(argc, argv);
@@ -115,67 +104,37 @@ int runHeadless(int argc, char *argv[], [[maybe_unused]] const QString &name)
     app.setOrganizationDomain(ORG_DOMAIN);
     app.setApplicationVersion(PROJECT_GITREV);
 
-    Frunk frunk(name, &app);
+    Panel panel(&app);
 
     int exitCode = EXIT_SUCCESS;
 
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, &frunk, &Frunk::stop);
-    QObject::connect(&unsig, &UnSig::unixSignal, &frunk, &Frunk::stop);
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &panel, &Panel::stop);
+    QObject::connect(&unsig, &UnSig::unixSignal, &panel, &Panel::stop);
     exitCode = app.exec();
     return exitCode;
 }
 
-int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[],
-                   [[maybe_unused]] const QString &name)
+int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
-    auto exePath = getExecutablePath();
-    if (exePath.isEmpty()) {
-        qWarning() << "Can only install service on linux hosts!";
-        return 1;
-    }
-    auto svcDef = SERVICE_TEMPLATE.arg(exePath).arg(
-        name.isEmpty() ? u" --headless"_s : u" --headless --name %1"_s.arg(name));
-    auto dir = QDir::home();
-    if (!dir.mkpath(u".config/systemd/user"_s)) {
-        qWarning() << "Failed to create systemd user config directory!";
-        return 1;
-    }
-    dir.cd(u".config/systemd/user"_s);
-    if (dir.exists(u"mango-frunk.service"_s)) {
-        qDebug() << "Uninstalling old service definition...";
-        (void)!system("systemctl --user stop mango-frunk.service");
-        (void)!system("systemctl --user disable mango-frunk.service");
-        dir.remove(u"mango-frunk.service"_s);
-    }
-    QFile f{dir.filePath(u"mango-frunk.service"_s)};
-    if (!f.open(QFile::WriteOnly)) {
-        qWarning() << "Failed to create systemd user service definition!";
-        return 1;
-    }
-    f.write(svcDef.toLatin1());
-    f.close();
-    (void)!system("systemctl --user daemon-reload");
-    (void)!system("systemctl --user enable mango-frunk.service");
-    (void)!system("systemctl --user start mango-frunk.service");
-    return 0;
+    SvcMgr svcMgr;
+    svcMgr.installService();
+    return EXIT_SUCCESS;
 }
 
-int main(int argc, char *argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
+    LogHandler::install(PROJECT_NAME ".log", 50);
+
     QLoggingCategory::setFilterRules("qt.bluetooth* = false");
     qDebug() << PROJECT_DISPLAY_NAME << "version" << PROJECT_GITREV;
 
     QCommandLineParser parser;
     parser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
-    parser.setApplicationDescription(u"mango-frunk data feed generator."_s);
+    parser.setApplicationDescription(u"%1 data feed generator."_s.arg(PROJECT_NAME));
     parser.addHelpOption();
     parser.addVersionOption();
 
-    QCommandLineOption nameOption{u"name"_s, u"Explicit mango frunk name to connect to."_s,
-                                  u"name"_s};
-    parser.addOption(nameOption);
-
-    QCommandLineOption installOption{u"install"_s, u"Install as a systemd service (LINUX ONLY)."_s};
+    QCommandLineOption installOption{u"install"_s, u"Install as a systemd service."_s};
     parser.addOption(installOption);
 
     QCommandLineOption headlessOption{u"headless"_s, u"Run without UI, used for service mode."_s};
@@ -187,16 +146,10 @@ int main(int argc, char *argv[])
     }
     parser.process(args);
 
-    QString name;
-    if (parser.isSet(nameOption)) {
-        name = parser.value(nameOption);
-        qDebug() << "Using provided name:" << name;
-    }
-
     if (parser.isSet(installOption)) {
-        return installService(argc, argv, name);
+        return installService(argc, argv);
     } else if (parser.isSet(headlessOption)) {
-        return runHeadless(argc, argv, name);
+        return runHeadless(argc, argv);
     } else {
         return runUi(argc, argv);
     }

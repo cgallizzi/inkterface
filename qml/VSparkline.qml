@@ -10,6 +10,7 @@ VRect {
     property color lineColor: control.fgColor
     property int maxPoints: 15
     property alias title: titleLabel.text
+    property bool autoValue: true
     property string value
 
     // override this as desired
@@ -42,7 +43,9 @@ VRect {
         }
         path.range = Qt.point(Math.max(1, Math.abs(xMax - xMin)), Math.max(1, Math.abs(yMax - yMin)));
         polyline.path = adjPoints;
-        control.value = formatPoint(slcPoints[slcPoints.length - 1]);
+        if (control.autoValue) {
+            control.value = formatPoint(slcPoints[slcPoints.length - 1]);
+        }
     }
 
     flipped: true

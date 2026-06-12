@@ -68,7 +68,7 @@ USER $USERNAME
 WORKDIR /home/$USERNAME
 
 ENV QT_ROOT=/opt/qt
-RUN mkdir -p $QT_ROOT && chown -R $USERNAME:$USERNAME $QT_ROOT
+RUN sudo mkdir -p $QT_ROOT && sudo chown -R $USERNAME:$USERNAME $QT_ROOT
 RUN aqt install-qt \
     linux \
     desktop \
