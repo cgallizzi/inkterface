@@ -7,14 +7,15 @@ import vqt
 Item {
     id: control
 
-    property FrunkInfo frunk: frunkFinder.frunk
+    property PanelInfo panel: panelFinder.panel
 
     signal error(var message)
-    signal frunkCleared
     signal notification(var message)
+    signal panelCleared
 
     Settings {
         id: settings
+
     }
 
     RowLayout {
@@ -31,17 +32,17 @@ Item {
 
             Layout.fillWidth: true
             elide: Label.ElideRight
-            font.pixelSize: 36
             font.bold: true
-            text: frunk.name
+            font.pixelSize: 36
+            text: panel.name
         }
 
         VConfirmButton {
-            normalText: "Clear Frunk"
+            normalText: "Clear Panel"
 
             onConfirmed: {
-                settings.setValue("frunkName", "");
-                control.frunkCleared();
+                settings.setValue("panelName", "");
+                control.panelCleared();
             }
         }
 
@@ -54,25 +55,26 @@ Item {
 
     ColumnLayout {
         id: titleLineLayout
+
         anchors.left: topRow.left
         anchors.right: topRow.right
         anchors.top: topRow.bottom
         anchors.topMargin: 10
 
         VLabel {
-            text: frunkState.topLine
-            font.pixelSize: 32
             font.bold: true
+            font.pixelSize: 32
+            text: panelState.topLine
         }
 
         VLabel {
-            text: frunkState.midLine
             font.pixelSize: 24
+            text: panelState.midLine
         }
 
         VLabel {
-            text: frunkState.botLine
             font.pixelSize: 24
+            text: panelState.botLine
         }
     }
 
@@ -90,7 +92,7 @@ Item {
         rowSpacing: 10
 
         Repeater {
-            model: frunkState.fields.filter((x) => x.depth <= 0)
+            model: panelState.fields.filter(x => x.depth <= 0)
 
             delegate: VBoxedReadout {
                 Layout.fillWidth: true
@@ -99,35 +101,41 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: overlayLoader.setSource("FrunkFieldOverlay.qml", {"field": modelData})
+
+                    onClicked: overlayLoader.setSource("PanelFieldOverlay.qml", {
+                                                           "field": modelData
+                                                       })
                 }
             }
         }
 
         Repeater {
-            model: frunkState.fields.filter((x) => x.depth > 0)
+            model: panelState.fields.filter(x => x.depth > 0)
 
             delegate: VSparkline {
-                Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: modelData.key || "--"
+                Layout.fillWidth: true
                 autoValue: false // don't use last point, we will set manually
-                value: modelData.val || "--"
                 maxPoints: modelData.depth
+                title: modelData.key || "--"
+                value: modelData.val || "--"
 
                 Component.onCompleted: setPoints(modelData.points)
 
                 Connections {
-                    target: modelData
-
                     function onPointsChanged() {
-                        setPoints(modelData.points)
+                        setPoints(modelData.points);
                     }
+
+                    target: modelData
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: overlayLoader.setSource("FrunkFieldOverlay.qml", {"field": modelData})
+
+                    onClicked: overlayLoader.setSource("PanelFieldOverlay.qml", {
+                                                           "field": modelData
+                                                       })
                 }
             }
         }
@@ -190,14 +198,15 @@ Item {
 
     Loader {
         id: overlayLoader
+
         anchors.fill: parent
     }
 
     Connections {
-        target: overlayLoader.item
-
         function onFinished() {
-            overlayLoader.sourceComponent = null
+            overlayLoader.sourceComponent = null;
         }
+
+        target: overlayLoader.item
     }
 }

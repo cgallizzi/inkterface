@@ -1,5 +1,5 @@
-#ifndef FRUNK_STATE_HPP
-#define FRUNK_STATE_HPP
+#ifndef PANEL_STATE_HPP
+#define PANEL_STATE_HPP
 
 #include <algorithm>
 #include <chrono>
@@ -15,11 +15,11 @@
 #include "steam.hpp"
 #include "sysstats.hpp"
 
-#define FRUNK_UPDATE_INTERVAL 2000
-#define FRUNK_POINT_DEPTH 20
-#define FRUNK_READOUT_COUNT 3
-#define FRUNK_SPARK_COUNT 6
-#define FRUNK_FIELD_COUNT (FRUNK_READOUT_COUNT + FRUNK_SPARK_COUNT)
+#define PANEL_UPDATE_INTERVAL 2000
+#define PANEL_POINT_DEPTH 20
+#define PANEL_READOUT_COUNT 3
+#define PANEL_SPARK_COUNT 6
+#define PANEL_FIELD_COUNT (PANEL_READOUT_COUNT + PANEL_SPARK_COUNT)
 
 using namespace Qt::Literals::StringLiterals;
 using DblGetter = std::function<double()>;
@@ -33,23 +33,23 @@ inline int64_t NOW_MS()
         .count();
 }
 
-class FrunkCollector : public QObject
+class PanelCollector : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(QString displayName READ displayName CONSTANT)
-    Q_PROPERTY(QString frunkName READ frunkName CONSTANT)
+    Q_PROPERTY(QString panelName READ panelName CONSTANT)
     Q_PROPERTY(QString description READ description CONSTANT)
     Q_PROPERTY(bool hasDbl READ hasDbl CONSTANT)
     Q_PROPERTY(bool hasStr READ hasStr CONSTANT)
 
   public:
-    explicit FrunkCollector(const QString &disp, const QString &frunk, const QString &desc,
+    explicit PanelCollector(const QString &disp, const QString &panel, const QString &desc,
                             DblGetter dg = nullptr, StrGetter sg = nullptr, Formatter fmt = nullptr,
                             QObject *parent = nullptr)
         : QObject(parent)
         , m_displayName(disp)
-        , m_frunkName(frunk)
+        , m_panelName(panel)
         , m_description(desc)
         , m_dblGetter(dg)
         , m_strGetter(sg)
@@ -61,7 +61,7 @@ class FrunkCollector : public QObject
     }
 
     const QString &displayName() const { return m_displayName; }
-    const QString &frunkName() const { return m_frunkName; }
+    const QString &panelName() const { return m_panelName; }
     const QString &description() const { return m_description; }
     bool hasDbl() const { return m_dblGetter != nullptr; }
     Q_INVOKABLE double getDbl(bool *ok = nullptr)
@@ -97,14 +97,14 @@ class FrunkCollector : public QObject
 
   private:
     QString m_displayName;
-    QString m_frunkName;
+    QString m_panelName;
     QString m_description;
     DblGetter m_dblGetter;
     StrGetter m_strGetter;
     Formatter m_formatter;
 };
 
-class FrunkField : public QObject
+class PanelField : public QObject
 {
     Q_OBJECT
 
@@ -118,10 +118,10 @@ class FrunkField : public QObject
     Q_PROPERTY(double yMax READ yMax NOTIFY pointsChanged)
     Q_PROPERTY(double yMin READ yMin NOTIFY pointsChanged)
 
-    Q_PROPERTY(FrunkCollector *collector READ collector WRITE setCollector NOTIFY collectorChanged)
+    Q_PROPERTY(PanelCollector *collector READ collector WRITE setCollector NOTIFY collectorChanged)
 
   public:
-    explicit FrunkField(const int &index, const double &depth = 0, QObject *parent = nullptr)
+    explicit PanelField(const int &index, const double &depth = 0, QObject *parent = nullptr)
         : QObject(parent)
         , m_index(index)
         , m_depth(depth)
@@ -136,9 +136,9 @@ class FrunkField : public QObject
     const double &xMin() const { return m_xMin; }
     const double &yMax() const { return m_yMax; }
     const double &yMin() const { return m_yMin; }
-    QPointer<FrunkCollector> collector() const { return m_collector; }
+    QPointer<PanelCollector> collector() const { return m_collector; }
 
-    void setCollector(QPointer<FrunkCollector> collector)
+    void setCollector(QPointer<PanelCollector> collector)
     {
         if (m_collector != collector) {
             m_collector = collector;
@@ -148,7 +148,7 @@ class FrunkField : public QObject
             emit collectorChanged();
             clear();
             if (m_collector) {
-                m_key = m_collector->frunkName();
+                m_key = m_collector->panelName();
                 m_val = m_collector->getStr();
             }
             emit readoutChanged();
@@ -160,7 +160,7 @@ class FrunkField : public QObject
     {
         if (!m_collector)
             return false;
-        QString k = m_collector->frunkName();
+        QString k = m_collector->panelName();
         QString v = m_collector->getStr();
         bool changed = k != m_key || v != m_val;
         m_key = k;
@@ -191,7 +191,7 @@ class FrunkField : public QObject
     double m_xMin = 0;
     double m_yMax = 0;
     double m_yMin = 0;
-    QPointer<FrunkCollector> m_collector;
+    QPointer<PanelCollector> m_collector;
 
     void append(const double &x, const double &y)
     {
@@ -224,7 +224,7 @@ class FrunkField : public QObject
     }
 };
 
-class FrunkState : public QObject
+class PanelState : public QObject
 {
     Q_OBJECT
 
@@ -232,11 +232,11 @@ class FrunkState : public QObject
     Q_PROPERTY(QString topLine READ topLine NOTIFY dataChanged)
     Q_PROPERTY(QString midLine READ midLine NOTIFY dataChanged)
     Q_PROPERTY(QString botLine READ botLine NOTIFY dataChanged)
-    Q_PROPERTY(QList<FrunkField *> fields READ fields NOTIFY fieldsChanged)
-    Q_PROPERTY(QList<FrunkCollector *> collectors READ collectors NOTIFY collectorsChanged)
+    Q_PROPERTY(QList<PanelField *> fields READ fields NOTIFY fieldsChanged)
+    Q_PROPERTY(QList<PanelCollector *> collectors READ collectors NOTIFY collectorsChanged)
 
   public:
-    explicit FrunkState(QObject *parent = nullptr)
+    explicit PanelState(QObject *parent = nullptr)
         : QObject(parent)
         , m_steam(new steam::Steam(this))
         , m_stats(new SysStats(this))
@@ -314,22 +314,22 @@ class FrunkState : public QObject
          *      could be identified later or added by community
          */
 
-        connect(m_steam, &steam::Steam::appStarted, this, &FrunkState::onAppStarted);
-        connect(m_steam, &steam::Steam::appStopped, this, &FrunkState::onAppStopped);
+        connect(m_steam, &steam::Steam::appStarted, this, &PanelState::onAppStarted);
+        connect(m_steam, &steam::Steam::appStopped, this, &PanelState::onAppStopped);
         m_steam->watchConsoleLog(true);
 
         // TODO: allow configuring different numbers/layouts of fields
-        FrunkField *field = nullptr;
-        for (int i = 0; i < FRUNK_FIELD_COUNT; ++i) {
-            if (i < FRUNK_READOUT_COUNT) {
-                field = new FrunkField(i, 0, this);
+        PanelField *field = nullptr;
+        for (int i = 0; i < PANEL_FIELD_COUNT; ++i) {
+            if (i < PANEL_READOUT_COUNT) {
+                field = new PanelField(i, 0, this);
             } else {
-                field = new FrunkField(i, FRUNK_POINT_DEPTH, this);
+                field = new PanelField(i, PANEL_POINT_DEPTH, this);
             }
             m_fields.append(field);
         }
-        connect(m_updateTimer, &QTimer::timeout, this, &FrunkState::updateState);
-        m_updateTimer->setInterval(FRUNK_UPDATE_INTERVAL);
+        connect(m_updateTimer, &QTimer::timeout, this, &PanelState::updateState);
+        m_updateTimer->setInterval(PANEL_UPDATE_INTERVAL);
         m_updateTimer->setSingleShot(false);
         updateState();
         m_updateTimer->start();
@@ -339,23 +339,23 @@ class FrunkState : public QObject
     const QString &topLine() const { return m_topLine; }
     const QString &midLine() const { return m_midLine; }
     const QString &botLine() const { return m_botLine; }
-    const QList<FrunkField *> fields() const { return m_fields; }
-    const QList<FrunkCollector *> collectors() const { return m_collectors; }
+    const QList<PanelField *> fields() const { return m_fields; }
+    const QList<PanelCollector *> collectors() const { return m_collectors; }
 
-    void registerCollector(const QString &displayName, const QString &frunkName,
+    void registerCollector(const QString &displayName, const QString &panelName,
                            const QString &description, DblGetter getter, Formatter fmt = nullptr)
     {
         auto collector =
-            new FrunkCollector(displayName, frunkName, description, getter, nullptr, fmt, this);
+            new PanelCollector(displayName, panelName, description, getter, nullptr, fmt, this);
         m_collectors.append(collector);
         m_collectorMap[displayName] = collector;
         emit collectorsChanged();
     }
-    void registerCollector(const QString &displayName, const QString &frunkName,
+    void registerCollector(const QString &displayName, const QString &panelName,
                            const QString &description, StrGetter getter)
     {
         auto collector =
-            new FrunkCollector(displayName, frunkName, description, nullptr, getter, nullptr, this);
+            new PanelCollector(displayName, panelName, description, nullptr, getter, nullptr, this);
         m_collectors.append(collector);
         m_collectorMap[displayName] = collector;
         emit collectorsChanged();
@@ -421,9 +421,9 @@ class FrunkState : public QObject
     QString m_topLine;
     QString m_midLine;
     QString m_botLine;
-    QList<FrunkField *> m_fields;
-    QList<FrunkCollector *> m_collectors;
-    QMap<QString, QPointer<FrunkCollector>> m_collectorMap;
+    QList<PanelField *> m_fields;
+    QList<PanelCollector *> m_collectors;
+    QMap<QString, QPointer<PanelCollector>> m_collectorMap;
 
     // TODO: this can probably be public or get triggered if when a new collector
     //       is registered
@@ -432,7 +432,7 @@ class FrunkState : public QObject
         bool changed = false;
         QSettings settings;
         QString collectorName;
-        FrunkField *field = nullptr;
+        PanelField *field = nullptr;
         for (int i = 0; i < m_fields.size(); ++i) {
             field = m_fields[i];
             // TODO: this is lame, but i want the value in the settings file to
@@ -480,4 +480,4 @@ class FrunkState : public QObject
     }
 };
 
-#endif /* FRUNK_STATE_HPP */
+#endif /* PANEL_STATE_HPP */

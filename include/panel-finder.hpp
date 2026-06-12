@@ -1,5 +1,5 @@
-#ifndef FRUNK_FINDER_HPP
-#define FRUNK_FINDER_HPP
+#ifndef PANEL_FINDER_HPP
+#define PANEL_FINDER_HPP
 
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QLowEnergyController>
@@ -10,7 +10,7 @@
 
 using namespace Qt::StringLiterals;
 
-class FrunkInfo : public QObject
+class PanelInfo : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
@@ -22,7 +22,7 @@ class FrunkInfo : public QObject
     Q_PROPERTY(bool supported READ supported CONSTANT)
 
   public:
-    explicit FrunkInfo(const QBluetoothDeviceInfo &info, QObject *parent = nullptr)
+    explicit PanelInfo(const QBluetoothDeviceInfo &info, QObject *parent = nullptr)
         : QObject(parent)
         , m_info(info)
     {
@@ -38,37 +38,37 @@ class FrunkInfo : public QObject
     QBluetoothDeviceInfo m_info;
 };
 
-class FrunkFinder : public QObject
+class PanelFinder : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QList<FrunkInfo *> frunks MEMBER m_frunks NOTIFY frunksChanged)
-    Q_PROPERTY(bool frunkFound READ frunkFound NOTIFY frunksChanged)
-    Q_PROPERTY(FrunkInfo *frunk READ frunk NOTIFY frunksChanged)
+    Q_PROPERTY(QList<PanelInfo *> panels MEMBER m_panels NOTIFY panelsChanged)
+    Q_PROPERTY(bool panelFound READ panelFound NOTIFY panelsChanged)
+    Q_PROPERTY(PanelInfo *panel READ panel NOTIFY panelsChanged)
 
   signals:
-    void frunksChanged();
+    void panelsChanged();
 
   public:
-    explicit FrunkFinder(QObject *parent = nullptr);
-    ~FrunkFinder()
+    explicit PanelFinder(QObject *parent = nullptr);
+    ~PanelFinder()
     {
         if (m_discoveryAgent) {
             m_discoveryAgent->stop();
         }
     }
 
-    bool frunkFound() const { return m_frunkFound; }
-    QPointer<FrunkInfo> frunk()
+    bool panelFound() const { return m_panelFound; }
+    QPointer<PanelInfo> panel()
     {
         updatePlaceholder();
-        auto frunkName = m_placeholderFrunk->name();
-        for (auto frunk : std::as_const(m_frunks)) {
-            if (frunk->name() == frunkName) {
-                return frunk;
+        auto panelName = m_placeholderPanel->name();
+        for (auto panel : std::as_const(m_panels)) {
+            if (panel->name() == panelName) {
+                return panel;
             }
         }
-        return m_placeholderFrunk;
+        return m_placeholderPanel;
     }
 
   public slots:
@@ -82,12 +82,12 @@ class FrunkFinder : public QObject
     {
         m_stopping = true;
         m_discoveryAgent->stop();
-        for (auto frunk : std::as_const(m_frunks)) {
-            frunk->deleteLater();
+        for (auto panel : std::as_const(m_panels)) {
+            panel->deleteLater();
         }
-        m_frunks.clear();
-        m_frunkFound = false;
-        emit frunksChanged();
+        m_panels.clear();
+        m_panelFound = false;
+        emit panelsChanged();
     }
 
   private slots:
@@ -101,12 +101,12 @@ class FrunkFinder : public QObject
 
   private:
     QBluetoothDeviceDiscoveryAgent *m_discoveryAgent = nullptr;
-    QList<FrunkInfo *> m_frunks;
-    FrunkInfo *m_placeholderFrunk = nullptr;
-    bool m_frunkFound = false;
+    QList<PanelInfo *> m_panels;
+    PanelInfo *m_placeholderPanel = nullptr;
+    bool m_panelFound = false;
     bool m_stopping = false;
 
     void updatePlaceholder();
 };
 
-#endif /* FRUNK_FINDER_HPP */
+#endif /* PANEL_FINDER_HPP */

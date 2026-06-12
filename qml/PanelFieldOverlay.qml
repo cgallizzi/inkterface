@@ -9,9 +9,9 @@ MouseArea {
 
     property var field
 
-    onClicked: control.finished()
-
     signal finished
+
+    onClicked: control.finished()
 
     Rectangle {
         anchors.fill: parent
@@ -20,65 +20,62 @@ MouseArea {
     }
 
     VRect {
+        anchors.centerIn: parent
         height: control.height * 0.8
         width: control.width * 0.75
-        anchors.centerIn: parent
 
-        MouseArea { anchors.fill: parent }
+        MouseArea {
+            anchors.fill: parent
+        }
 
         ColumnLayout {
-            spacing: 15
             anchors.fill: parent
             anchors.margins: 20
+            spacing: 15
 
             VLabel {
-                text: "Select data to display:"
+                Layout.fillWidth: true
                 font.bold: true
                 font.italic: true
-                Layout.fillWidth: true
+                text: "Select data to display:"
             }
 
             ListView {
-                Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 10
-                model: control.field.depth > 0 ? frunkState.collectors.filter((x) => x.hasDbl) : frunkState.collectors
+                Layout.fillWidth: true
                 clip: true
-                header: Item {
-                    height: 10
-                }
-                footer: Item {
-                    height: 10
-                }
+                model: control.field.depth > 0 ? panelState.collectors.filter(x => x.hasDbl) : panelState.collectors
+                spacing: 10
 
                 delegate: VBevelRect {
+                    height: 100
                     style: modelData === control.field.collector ? 2 : 0
                     width: ListView.view.width
-                    height: 100
 
                     VLabel {
-                        text: modelData.displayName
+                        anchors.left: parent.left
+                        anchors.margins: 15
+                        anchors.top: parent.top
                         font.bold: true
                         font.italic: true
-                        anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.margins: 15
+                        text: modelData.displayName
                     }
 
                     VLabel {
-                        text: modelData.description
-                        elide: Label.ElideRight
-                        anchors.left: parent.left
-                        anchors.right: parent.right
                         anchors.bottom: parent.bottom
+                        anchors.left: parent.left
                         anchors.margins: 15
+                        anchors.right: parent.right
+                        elide: Label.ElideRight
+                        text: modelData.description
                     }
 
                     VLabel {
                         id: valueLabel
-                        anchors.top: parent.top
-                        anchors.right: parent.right
+
                         anchors.margins: 15
+                        anchors.right: parent.right
+                        anchors.top: parent.top
 
                         Component.onCompleted: valueLabel.text = modelData.getStr() || "N/A"
                     }
@@ -87,17 +84,23 @@ MouseArea {
                         anchors.fill: parent
 
                         onClicked: {
-                            control.field.collector = modelData
-                            control.finished()
+                            control.field.collector = modelData;
+                            control.finished();
                         }
                     }
                 }
+                footer: Item {
+                    height: 10
+                }
+                header: Item {
+                    height: 10
+                }
 
                 Rectangle {
-                    height: 10
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
+                    height: 10
 
                     gradient: Gradient {
                         GradientStop {
@@ -113,10 +116,10 @@ MouseArea {
                 }
 
                 Rectangle {
-                    height: 10
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
+                    height: 10
 
                     gradient: Gradient {
                         GradientStop {

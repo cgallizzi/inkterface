@@ -1,10 +1,10 @@
-# mango-frunk, an e-ink display that shows some system stats.
+# Inkterface, an e-ink faceplate for your Steam Machine.
 
 
 ## Running
 
 If you have an AppImage build, just copy it to a SteamOS device and run it like:
-* `./mango-frunk*.AppImage --install`
+* `./inkterface.AppImage`
 
 That it will install and run itself as a user service. Make sure bluetooth is
 enabled on the device and then if you bring a panel nearby it should connect.
@@ -15,7 +15,7 @@ next to the SteamOS host machine in case it's already connected somewhere else.
 
 ## Design Docs
 
-Planning out the UI and frunk design is done in a Lunacy document you can find
+Planning out the UI and panel design is done in a Lunacy document you can find
 in the `./design` folder.
 
 Lunacy is an open source alternative to tools like Figma that can work entirely
@@ -30,29 +30,20 @@ offline.
     * You need to have an ESP32-S3 Feather connected and it should build and flash.
 
 
-## Building Service
+## Building
 
-If you have Qt installed you should be able to open the cmake project in Qt Creator,
-but for distributable linux builds it's easiest to follow this process on SteamOS.
+If you have Qt installed you should be able to open the cmake project in Qt Creator
+and that will should work for you!
 
-1. `distrobox create --pull --image archlinux:base-devel --name mango-frunk`
-2. `distrobox enter mango-frunk`
-    * **NOTE:** Following commands are all ran within the distrobox!
-3. `sudo pacman -Syu base-devel wget cmake git fuse2 qt6`
-4. `./scripts/build.sh deploy`
-
-That should produce an AppImage for you in the `./dist-linux-x86_64` folder!
-
-
-## Building Using Custom Container
-
-You can setup a better container for wider platform support on the builds by
-using the included `Containerfile`.
+For better distributable builds You can setup a container for wider platform
+support using the included `Containerfile`.
 
 1. `podman build -t qt69-builder -f ./Containerfile`
 2. `distrobox create --image qt69-builder --name qt69`
 3. `distrobox enter qt69`
 4. `./scripts/build.sh deploy`
+
+That should produce an AppImage for you in the `./dist-linux-x86_64` folder!
 
 This container uses an older version of Ubuntu and Qt 6.9 which should let us
 build AppImages that will work on a wide range of modern systems.

@@ -16,10 +16,10 @@
 #include <QTimer>
 
 #include "config.h"
-#include "frunk-finder.hpp"
-#include "frunk-state.hpp"
-#include "frunk.hpp"
 #include "loghandler.hpp"
+#include "panel-finder.hpp"
+#include "panel-state.hpp"
+#include "panel.hpp"
 #include "svcmgr.hpp"
 #include "unsig.hpp"
 
@@ -67,14 +67,14 @@ int runUi(int argc, char *argv[])
     QQmlApplicationEngine engine(&app);
     QQmlContext *ctx = engine.rootContext();
 
-    FrunkFinder *frunkFinder = new FrunkFinder(&app);
-    ctx->setContextProperty("frunkFinder", frunkFinder);
+    PanelFinder *panelFinder = new PanelFinder(&app);
+    ctx->setContextProperty("panelFinder", panelFinder);
 
     SvcMgr *svcMgr = new SvcMgr(&app);
     ctx->setContextProperty("svcMgr", svcMgr);
 
-    FrunkState *fs = new FrunkState(&app);
-    ctx->setContextProperty("frunkState", fs);
+    PanelState *fs = new PanelState(&app);
+    ctx->setContextProperty("panelState", fs);
 
     const QUrl url(u"qrc:/%1/qml/main.qml"_s.arg(QML_URI));
     QObject::connect(
@@ -104,12 +104,12 @@ int runHeadless(int argc, char *argv[])
     app.setOrganizationDomain(ORG_DOMAIN);
     app.setApplicationVersion(PROJECT_GITREV);
 
-    Frunk frunk(&app);
+    Panel panel(&app);
 
     int exitCode = EXIT_SUCCESS;
 
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, &frunk, &Frunk::stop);
-    QObject::connect(&unsig, &UnSig::unixSignal, &frunk, &Frunk::stop);
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &panel, &Panel::stop);
+    QObject::connect(&unsig, &UnSig::unixSignal, &panel, &Panel::stop);
     exitCode = app.exec();
     return exitCode;
 }
@@ -123,14 +123,14 @@ int installService([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
-    LogHandler::install("mango-frunk.log", 50);
+    LogHandler::install(PROJECT_NAME ".log", 50);
 
     QLoggingCategory::setFilterRules("qt.bluetooth* = false");
     qDebug() << PROJECT_DISPLAY_NAME << "version" << PROJECT_GITREV;
 
     QCommandLineParser parser;
     parser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
-    parser.setApplicationDescription(u"mango-frunk data feed generator."_s);
+    parser.setApplicationDescription(u"%1 data feed generator."_s.arg(PROJECT_NAME));
     parser.addHelpOption();
     parser.addVersionOption();
 

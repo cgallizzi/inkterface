@@ -1,55 +1,55 @@
-#include "frunk-finder.hpp"
+#include "panel-finder.hpp"
 
 #include <QDebug>
 #include <algorithm>
 
 using namespace Qt::Literals::StringLiterals;
 
-FrunkFinder::FrunkFinder(QObject *parent)
+PanelFinder::PanelFinder(QObject *parent)
     : QObject(parent)
     , m_discoveryAgent(new QBluetoothDeviceDiscoveryAgent(this))
 {
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this,
-            &FrunkFinder::onDiscoveryEnded);
+            &PanelFinder::onDiscoveryEnded);
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::finished, this,
-            &FrunkFinder::onDiscoveryEnded);
+            &PanelFinder::onDiscoveryEnded);
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
-            &FrunkFinder::onDiscoveryError);
+            &PanelFinder::onDiscoveryError);
 
     updatePlaceholder();
     startDiscovery();
 }
 
-void FrunkFinder::onDiscoveryEnded()
+void PanelFinder::onDiscoveryEnded()
 {
     if (m_stopping)
         return;
 
-    for (auto frunk : std::as_const(m_frunks)) {
-        frunk->deleteLater();
+    for (auto panel : std::as_const(m_panels)) {
+        panel->deleteLater();
     }
-    m_frunks.clear();
-    m_frunkFound = false;
+    m_panels.clear();
+    m_panelFound = false;
 
     updatePlaceholder();
-    auto frunkName = m_placeholderFrunk->name();
+    auto panelName = m_placeholderPanel->name();
     const auto devices = m_discoveryAgent->discoveredDevices();
     for (const auto &info : devices) {
         if (!info.isValid() || info.isCached() || !info.name().startsWith(u"INKTF-"_s)) {
             continue;
         }
         qDebug() << "Discovered: " << info.name() << ", RSSI: " << info.rssi();
-        auto frunk = new FrunkInfo(info, this);
-        m_frunks.append(frunk);
+        auto panel = new PanelInfo(info, this);
+        m_panels.append(panel);
 
-        if (!frunkName.isEmpty() && frunk->name() == frunkName) {
-            m_frunkFound = true;
+        if (!panelName.isEmpty() && panel->name() == panelName) {
+            m_panelFound = true;
             QSettings settings;
-            settings.setValue(u"lastRssi"_s, frunk->rssi());
-            settings.setValue(u"lastIfaceVersion"_s, frunk->ifaceVersion());
+            settings.setValue(u"lastRssi"_s, panel->rssi());
+            settings.setValue(u"lastIfaceVersion"_s, panel->ifaceVersion());
         }
     }
-    std::stable_sort(m_frunks.begin(), m_frunks.end(), [](const FrunkInfo *a, const FrunkInfo *b) {
+    std::stable_sort(m_panels.begin(), m_panels.end(), [](const PanelInfo *a, const PanelInfo *b) {
         if (a->supported() != b->supported()) {
             return a->supported();
         }
@@ -59,24 +59,24 @@ void FrunkFinder::onDiscoveryEnded()
         return a->name() < b->name();
     });
     startDiscovery();
-    emit frunksChanged();
+    emit panelsChanged();
 }
 
-void FrunkFinder::updatePlaceholder()
+void PanelFinder::updatePlaceholder()
 {
-    if (m_placeholderFrunk) {
-        m_placeholderFrunk->deleteLater();
-        m_placeholderFrunk = nullptr;
+    if (m_placeholderPanel) {
+        m_placeholderPanel->deleteLater();
+        m_placeholderPanel = nullptr;
     }
     QSettings settings;
-    auto frunkName = settings.value(u"frunkName"_s).toString();
+    auto panelName = settings.value(u"panelName"_s).toString();
     auto rssi = settings.value(u"lastRssi"_s).toInt();
     auto ifaceVersion = settings.value(u"lastIfaceVersion"_s).toString().toLatin1();
     QBluetoothDeviceInfo info;
-    if (!frunkName.isEmpty()) {
-        info.setName(frunkName);
+    if (!panelName.isEmpty()) {
+        info.setName(panelName);
         info.setRssi(rssi);
         info.setManufacturerData(0x055d, ifaceVersion);
     }
-    m_placeholderFrunk = new FrunkInfo(info, this);
+    m_placeholderPanel = new PanelInfo(info, this);
 }

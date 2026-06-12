@@ -1,20 +1,20 @@
-#ifndef FRUNK_HPP
-#define FRUNK_HPP
+#ifndef PANEL_HPP
+#define PANEL_HPP
 
 #include <QLowEnergyController>
 #include <QObject>
 #include <QTimer>
 
-#include "frunk-finder.hpp"
-#include "frunk-state.hpp"
+#include "panel-finder.hpp"
+#include "panel-state.hpp"
 
-class Frunk : public QObject
+class Panel : public QObject
 {
     Q_OBJECT
 
   public:
-    explicit Frunk(QObject *parent = nullptr);
-    ~Frunk()
+    explicit Panel(QObject *parent = nullptr);
+    ~Panel()
     {
         if (m_controller) {
             m_controller->disconnectFromDevice();
@@ -51,8 +51,8 @@ class Frunk : public QObject
     QLowEnergyService *m_service = nullptr;
     QBluetoothDeviceInfo m_device;
 
-    FrunkFinder *m_ffinder = nullptr;
-    FrunkState *m_fstate = nullptr;
+    PanelFinder *m_finder = nullptr;
+    PanelState *m_state = nullptr;
 
     QTimer *m_connTimer = nullptr;
     QTimer *m_sendTimer = nullptr;
@@ -62,8 +62,8 @@ class Frunk : public QObject
 
     void writeLine(const QUuid &uuid, const QString &value);
     void writeKeyVal(const uint8_t &index, const QString &key, const QString &value);
-    void writePoints(const uint8_t &index, const FrunkField *field);
+    void writePoints(const uint8_t &index, const PanelField *field);
     void flushDisplay();
 };
 
-#endif /* FRUNK_HPP */
+#endif /* PANEL_HPP */

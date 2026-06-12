@@ -1,4 +1,4 @@
-#include "frunk.hpp"
+#include "panel.hpp"
 
 #include <QByteArray>
 #include <QCoreApplication>
@@ -32,27 +32,27 @@
 
 using namespace Qt::Literals::StringLiterals;
 
-Frunk::Frunk(QObject *parent)
+Panel::Panel(QObject *parent)
     : QObject(parent)
-    , m_ffinder(new FrunkFinder(this))
-    , m_fstate(new FrunkState(this))
+    , m_finder(new PanelFinder(this))
+    , m_state(new PanelState(this))
     , m_connTimer(new QTimer(this))
     , m_sendTimer(new QTimer(this))
 {
-    connect(m_ffinder, &FrunkFinder::frunksChanged, this, &Frunk::connCheck);
+    connect(m_finder, &PanelFinder::panelsChanged, this, &Panel::connCheck);
 
     m_connTimer->setSingleShot(false);
     m_connTimer->setInterval(CONN_INTERVAL);
-    connect(m_connTimer, &QTimer::timeout, this, &Frunk::connCheck);
+    connect(m_connTimer, &QTimer::timeout, this, &Panel::connCheck);
     m_connTimer->start();
 
     m_sendTimer->setSingleShot(false);
     m_sendTimer->setInterval(SEND_INTERVAL);
-    connect(m_sendTimer, &QTimer::timeout, this, &Frunk::sendState);
+    connect(m_sendTimer, &QTimer::timeout, this, &Panel::sendState);
     m_sendTimer->start();
 }
 
-void Frunk::stop()
+void Panel::stop()
 {
     m_stopping = true;
     if (m_controller) {
@@ -61,13 +61,13 @@ void Frunk::stop()
     QTimer::singleShot(1000, this, [&]() { QCoreApplication::quit(); });
 }
 
-void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state)
+void Panel::onControllerStateChanged(QLowEnergyController::ControllerState state)
 {
     qDebug() << "New controller state: " << state;
     if (!isConnected()) {
         qDebug() << "lost connection, clearing...";
         clearConnection();
-        m_ffinder->startDiscovery();
+        m_finder->startDiscovery();
         return;
     }
     if (state == QLowEnergyController::ConnectedState) {
@@ -77,7 +77,7 @@ void Frunk::onControllerStateChanged(QLowEnergyController::ControllerState state
     }
 }
 
-void Frunk::onControllerServicesDiscovered()
+void Panel::onControllerServicesDiscovered()
 {
     if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
         return;
@@ -91,25 +91,25 @@ void Frunk::onControllerServicesDiscovered()
     if (!m_service) {
         qDebug() << "Failed to create service!";
         clearConnection();
-        m_ffinder->startDiscovery();
+        m_finder->startDiscovery();
         return;
     }
-    connect(m_service, &QLowEnergyService::stateChanged, this, &Frunk::onServiceStateChanged);
-    connect(m_service, &QLowEnergyService::errorOccurred, this, &Frunk::onServiceError);
+    connect(m_service, &QLowEnergyService::stateChanged, this, &Panel::onServiceStateChanged);
+    connect(m_service, &QLowEnergyService::errorOccurred, this, &Panel::onServiceError);
     connect(m_service, &QLowEnergyService::characteristicWritten, this,
-            &Frunk::onServiceCharacteristicWritten);
+            &Panel::onServiceCharacteristicWritten);
     m_service->discoverDetails();
     m_lastComms = std::chrono::steady_clock::now();
 }
 
-void Frunk::onControllerError(QLowEnergyController::Error error)
+void Panel::onControllerError(QLowEnergyController::Error error)
 {
     qDebug() << "controller error:" << error;
     clearConnection();
-    m_ffinder->startDiscovery();
+    m_finder->startDiscovery();
 }
 
-void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
+void Panel::onServiceStateChanged(QLowEnergyService::ServiceState state)
 {
     qDebug() << "New service state: " << state;
     if (state != QLowEnergyService::RemoteServiceDiscovered) {
@@ -120,21 +120,21 @@ void Frunk::onServiceStateChanged(QLowEnergyService::ServiceState state)
     m_lastComms = std::chrono::steady_clock::now();
 }
 
-void Frunk::onServiceError(QLowEnergyService::ServiceError error)
+void Panel::onServiceError(QLowEnergyService::ServiceError error)
 {
     qDebug() << "service error:" << error;
     clearConnection();
-    m_ffinder->startDiscovery();
+    m_finder->startDiscovery();
 }
 
-void Frunk::onServiceCharacteristicWritten(
+void Panel::onServiceCharacteristicWritten(
     [[maybe_unused]] const QLowEnergyCharacteristic &characteristic,
     [[maybe_unused]] const QByteArray &value)
 {
     m_lastComms = std::chrono::steady_clock::now();
 }
 
-void Frunk::writeLine(const QUuid &uuid, const QString &value)
+void Panel::writeLine(const QUuid &uuid, const QString &value)
 {
     if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
         return;
@@ -145,7 +145,7 @@ void Frunk::writeLine(const QUuid &uuid, const QString &value)
     }
 }
 
-void Frunk::writeKeyVal(const uint8_t &index, const QString &key, const QString &value)
+void Panel::writeKeyVal(const uint8_t &index, const QString &key, const QString &value)
 {
     if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
         return;
@@ -163,7 +163,7 @@ void Frunk::writeKeyVal(const uint8_t &index, const QString &key, const QString 
     }
 }
 
-void Frunk::writePoints(const uint8_t &index, const FrunkField *field)
+void Panel::writePoints(const uint8_t &index, const PanelField *field)
 {
     if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
         return;
@@ -205,7 +205,7 @@ void Frunk::writePoints(const uint8_t &index, const FrunkField *field)
     }
 }
 
-void Frunk::flushDisplay()
+void Panel::flushDisplay()
 {
     if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
         return;
@@ -217,47 +217,47 @@ void Frunk::flushDisplay()
     }
 }
 
-void Frunk::connCheck()
+void Panel::connCheck()
 {
     if (m_connecting) {
         return;
     }
-    auto frunk = m_ffinder->frunk();
-    bool matches = frunk->name() == m_device.name();
-    bool found = m_ffinder->frunkFound();
+    auto panel = m_finder->panel();
+    bool matches = panel->name() == m_device.name();
+    bool found = m_finder->panelFound();
     if (isConnected()) {
         auto delta = std::chrono::steady_clock::now() - m_lastComms;
         if (!matches) {
             qDebug() << "Removing connection, doesn't match.";
             clearConnection();
-            m_ffinder->startDiscovery();
+            m_finder->startDiscovery();
         } else if (delta > CONN_LOST) {
             qWarning() << "Connection inactive for" << delta << ", removing!";
             clearConnection();
-            m_ffinder->startDiscovery();
+            m_finder->startDiscovery();
         } else if (delta > CONN_WARNING) {
             qWarning() << "Connection inactive for" << delta;
         }
         return;
     }
-    if (!found || frunk->name().isEmpty()) {
+    if (!found || panel->name().isEmpty()) {
         return;
     }
-    m_ffinder->stopDiscovery();
+    m_finder->stopDiscovery();
     m_connecting = true;
-    m_device = frunk->bleInfo();
+    m_device = panel->bleInfo();
     qDebug() << "Connecting to " << m_device.name() << ", valid" << m_device.isValid() << ", cached"
              << m_device.isCached();
     m_controller = QLowEnergyController::createCentral(m_device, this);
     connect(m_controller, &QLowEnergyController::stateChanged, this,
-            &Frunk::onControllerStateChanged);
+            &Panel::onControllerStateChanged);
     connect(m_controller, &QLowEnergyController::discoveryFinished, this,
-            &Frunk::onControllerServicesDiscovered);
-    connect(m_controller, &QLowEnergyController::errorOccurred, this, &Frunk::onControllerError);
+            &Panel::onControllerServicesDiscovered);
+    connect(m_controller, &QLowEnergyController::errorOccurred, this, &Panel::onControllerError);
     m_controller->connectToDevice();
 }
 
-void Frunk::clearConnection()
+void Panel::clearConnection()
 {
     if (m_service) {
         qDebug() << "clearing service";
@@ -276,7 +276,7 @@ void Frunk::clearConnection()
     m_connecting = false;
 }
 
-void Frunk::sendState()
+void Panel::sendState()
 {
     if (!m_controller || m_controller->state() == QLowEnergyController::UnconnectedState) {
         return;
@@ -284,16 +284,16 @@ void Frunk::sendState()
     if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
         return;
     }
-    if (!m_fstate->dirty()) {
+    if (!m_state->dirty()) {
         return;
     }
 
-    writeLine(TOPLINE_UUID, m_fstate->topLine());
-    writeLine(MIDLINE_UUID, m_fstate->midLine());
-    writeLine(BOTLINE_UUID, m_fstate->botLine());
+    writeLine(TOPLINE_UUID, m_state->topLine());
+    writeLine(MIDLINE_UUID, m_state->midLine());
+    writeLine(BOTLINE_UUID, m_state->botLine());
     int fields = 0;
     int sparks = 0;
-    for (auto field : m_fstate->fields()) {
+    for (auto field : m_state->fields()) {
         writeKeyVal(fields, field->key(), field->val());
         ++fields;
         if (field->depth() > 0) {

@@ -16,10 +16,10 @@ ApplicationWindow {
     width: Math.min(1280, Screen.width)
 
     Component.onCompleted: {
-        if (settings.value("frunkName") === "") {
-            pageLoader.source = "FrunkListPage.qml";
+        if (settings.value("panelName") === "") {
+            pageLoader.source = "PanelListPage.qml";
         } else {
-            pageLoader.source = "FrunkConfigPage.qml";
+            pageLoader.source = "PanelConfigPage.qml";
         }
     }
 
@@ -54,16 +54,16 @@ ApplicationWindow {
             toast.showError(message);
         }
 
-        function onFrunkCleared() {
-            pageLoader.source = "FrunkListPage.qml";
-        }
-
-        function onFrunkSelected() {
-            pageLoader.source = "FrunkConfigPage.qml";
-        }
-
         function onNotification(message) {
             toast.showNotification(message);
+        }
+
+        function onPanelCleared() {
+            pageLoader.source = "PanelListPage.qml";
+        }
+
+        function onPanelSelected() {
+            pageLoader.source = "PanelConfigPage.qml";
         }
 
         target: pageLoader.item

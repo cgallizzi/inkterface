@@ -54,11 +54,11 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
     chmod +x appimagetool-*.AppImage
 
     echo "Preparing appdir..."
-    APP_DIR=mango-frunk.AppDir
+    APP_DIR=inkterface.AppDir
     mkdir -p $APP_DIR/usr/bin
     mkdir -p $APP_DIR/usr/share/applications
     mkdir -p $APP_DIR/usr/lib/qt6/plugins
-    cp $BUILD_DIR/mango-frunk $APP_DIR/usr/bin/.
+    cp $BUILD_DIR/inkterface $APP_DIR/usr/bin/.
     cp resources/icon.png $APP_DIR/.
     cp resources/*.desktop $APP_DIR/usr/share/applications/.
     cp -r $QT_DIR/plugins/tls $APP_DIR/usr/lib/qt6/plugins/.
@@ -71,13 +71,13 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
 
     echo "Packaging release..."
     mkdir -p $DIST_DIR
-    mv mango-frunk-*.AppImage $DIST_DIR/.
+    mv inkterface-*.AppImage $DIST_DIR/.
     # don't create archive for wip
     if [[ "$GITREV" != *"DIRTY"* ]]; then
         pushd $DIST_DIR
-        tar zcf ../mango-frunk-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
+        tar zcf ../inkterface-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
         popd
     fi
     cp resources/launch.sh $DIST_DIR/.
-    cp $DIST_DIR/mango-frunk-*.AppImage $DIST_DIR/mango-frunk.AppImage
+    cp $DIST_DIR/inkterface-*.AppImage $DIST_DIR/inkterface.AppImage
 fi

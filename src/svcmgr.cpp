@@ -13,9 +13,8 @@
 using namespace Qt::Literals::StringLiterals;
 
 #define CHECK_INTERVAL 5000
-#define SVC_NAME "mango-frunk"
-#define SVC_FILE "mango-frunk.service"
-#define SYSTEMCTL u"/usr/bin/systemctl"_s
+#define SVC_NAME "inkterface"
+#define SVC_FILE (SVC_NAME ".service")
 
 static const QString SERVICE_TEMPLATE{u"[Unit]\n"_s
                                       u"Description=%1\n"_s
@@ -52,7 +51,7 @@ void SvcMgr::installService()
         }
     }
     if (exePath.isEmpty()) {
-        qWarning() << "Can only install service on linux hosts!";
+        qWarning() << "Could not determine executable to use for service!";
         return;
     }
     qInfo() << "using" << exePath << "for service";
@@ -78,7 +77,7 @@ void SvcMgr::installService()
     qDebug() << "wrote svc def to" << f.fileName() << ", def:" << svcDef;
 
     // Create a short-lived private connection to the session bus
-    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    auto connName = u"%1-%2"_s.arg(SVC_NAME, QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
@@ -135,7 +134,7 @@ void SvcMgr::uninstallService()
 #if defined(Q_OS_LINUX)
     QString unit = SVC_FILE;
     QList<QString> files{unit};
-    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    auto connName = u"%1-%2"_s.arg(SVC_NAME, QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
@@ -194,7 +193,7 @@ void SvcMgr::startService()
 {
 #if defined(Q_OS_LINUX)
     QString unit = SVC_FILE;
-    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    auto connName = u"%1-%2"_s.arg(SVC_NAME, QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
@@ -245,7 +244,7 @@ void SvcMgr::stopService()
 {
 #if defined(Q_OS_LINUX)
     QString unit = SVC_FILE;
-    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    auto connName = u"%1-%2"_s.arg(SVC_NAME, QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
@@ -281,7 +280,7 @@ void SvcMgr::stopService()
 void SvcMgr::check()
 {
 #if defined(Q_OS_LINUX)
-    auto connName = u"frunkmanager-%1"_s.arg(QCoreApplication::applicationPid());
+    auto connName = u"%1-%2"_s.arg(SVC_NAME, QCoreApplication::applicationPid());
     QDBusConnection bus = QDBusConnection::connectToBus(QDBusConnection::SessionBus, connName);
     if (!bus.isConnected()) {
         qWarning() << "Failed to connect to session bus";
