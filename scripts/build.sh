@@ -71,13 +71,13 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
 
     echo "Packaging release..."
     mkdir -p $DIST_DIR
-    mv inkterface-*.AppImage $DIST_DIR/.
+    mv Inkterface-*.AppImage $DIST_DIR/.
     # don't create archive for wip
     if [[ "$GITREV" != *"DIRTY"* ]]; then
         pushd $DIST_DIR
-        tar zcf ../inkterface-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
+        tar zcf ../Inkterface-$PLATFORM-$ARCH-$GITREV.tar.gz *.AppImage
         popd
     fi
     cp resources/launch.sh $DIST_DIR/.
-    cp $DIST_DIR/inkterface-*.AppImage $DIST_DIR/inkterface.AppImage
+    cp $DIST_DIR/Inkterface-*.AppImage $DIST_DIR/Inkterface.AppImage
 fi
