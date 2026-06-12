@@ -13,7 +13,9 @@
 
 ## Assembly
 
-**Coming Soon: A tutorial video and PDF guide!**
+Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutorial!
+
+**Coming Soon: a PDF guide!**
 
 **Warning: The screws will thread themselves into the plastic, but be VERY gentle
 as it is easy to strip the plastic away and need to re-print parts!**
