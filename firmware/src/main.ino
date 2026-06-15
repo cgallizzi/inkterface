@@ -1,3 +1,4 @@
+// vim: foldmethod=marker:foldmarker={{{,}}}
 #include <iomanip>
 #include <limits>
 #include <sstream>
@@ -8,13 +9,20 @@
 
 #include "gaben.h"
 
-#define SERVICE_UUID NimBLEUUID{"95c7b479-8e84-4ce7-a121-faf74bf48c84"}
-#define TOPLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871900"}
-#define MIDLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871901"}
-#define BOTLINE_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871902"}
-#define KEYVAL_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871903"}
-#define VECTOR_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a871904"}
-#define FLUSH_UUID NimBLEUUID{"d6f4c07e-4a21-4c69-bd15-43a38a8719FF"}
+#define SERVICE_UUID                                                                               \
+    NimBLEUUID { "95c7b479-8e84-4ce7-a121-faf74bf48c84" }
+#define TOPLINE_UUID                                                                               \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871900" }
+#define MIDLINE_UUID                                                                               \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871901" }
+#define BOTLINE_UUID                                                                               \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871902" }
+#define KEYVAL_UUID                                                                                \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871903" }
+#define VECTOR_UUID                                                                                \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871904" }
+#define FLUSH_UUID                                                                                 \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
 
 #define SPARKBOX_HEIGHT 100
 #define SPARKBOX_WIDTH 209
@@ -29,15 +37,15 @@ bool INVERTED = false;
 #define BG_COLOR (INVERTED ? EPD_BLACK : EPD_WHITE)
 
 class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
-{
+{ // {{{
   public:
     CustomDisp(int16_t SID, int16_t SCLK, int16_t DC, int16_t RST, int16_t CS, int16_t SRCS,
                int16_t MISO, int16_t BUSY = -1)
-        : ThinkInk_583_Mono_AAAMFGN(SID, SCLK, DC, RST, CS, SRCS, MISO, BUSY) {};
+        : ThinkInk_583_Mono_AAAMFGN(SID, SCLK, DC, RST, CS, SRCS, MISO, BUSY){};
 
     CustomDisp(int16_t DC, int16_t RST, int16_t CS, int16_t SRCS, int16_t BUSY = -1,
                SPIClass *spi = &SPI)
-        : ThinkInk_583_Mono_AAAMFGN(DC, RST, CS, SRCS, BUSY, spi) {};
+        : ThinkInk_583_Mono_AAAMFGN(DC, RST, CS, SRCS, BUSY, spi){};
 
     // experimenting with adding windowed/partial refresh
     void partialWindow(uint16_t x = 8, uint16_t w = 198, uint16_t y = 92, uint16_t h = 110,
@@ -62,14 +70,14 @@ class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
     }
     void partialIn() { EPD_command(0x91); }
     void partialOut() { EPD_command(0x90); }
-};
+}; // }}}
 
 // ThinkInk_583_Mono_AAAMFGN MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 CustomDisp MF_DISPLAY(EPD_DC, EPD_RESET, EPD_CS, -1 /* SRAM_CS */, EPD_BUSY);
 
 static unsigned long DISP_DEBOUNCE = 0;
 
-struct Point {
+struct Point { // {{{
     float x;
     float y;
 
@@ -83,9 +91,9 @@ struct Point {
         , y(_y)
     {
     }
-};
+}; // }}}
 
-struct Points {
+struct Points { // {{{
     float yMin;
     float yMax;
     std::vector<Point> points;
@@ -103,9 +111,9 @@ struct Points {
         yMax = 0;
         points.clear();
     }
-};
+}; // }}}
 
-struct KeyVal {
+struct KeyVal { // {{{
     std::string key;
     std::string val;
 
@@ -114,10 +122,10 @@ struct KeyVal {
         , val{""}
     {
     }
-};
+}; // }}}
 typedef std::vector<KeyVal> KeyVals;
 
-struct State {
+struct State { // {{{
     bool connected = false;
     std::string topLine{"Starting up..."};
     std::string midLine{"No User"};
@@ -164,12 +172,12 @@ struct State {
         keyvals[8].key = "MEM";
         keyvals[8].val = "--%";
     }
-} STATE;
+} STATE; // }}}
 
 void drawStatic();
 
 class ServerCallbacks : public NimBLEServerCallbacks
-{
+{ // {{{
     void onConnect(NimBLEServer *server, NimBLEConnInfo &conn) override
     {
         Serial.println("got connection");
@@ -193,10 +201,10 @@ class ServerCallbacks : public NimBLEServerCallbacks
         }
         NimBLEDevice::startAdvertising();
     }
-} SERVER_CALLBACKS;
+} SERVER_CALLBACKS; // }}}
 
 class StatusLineCallbacks : public NimBLECharacteristicCallbacks
-{
+{ // {{{
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
     {
         std::string value = characteristic->getValue();
@@ -216,10 +224,10 @@ class StatusLineCallbacks : public NimBLECharacteristicCallbacks
             return;
         }
     }
-} STATUS_CALLBACKS;
+} STATUS_CALLBACKS; // }}}
 
 class KeyValCallbacks : public NimBLECharacteristicCallbacks
-{
+{ // {{{
     typedef struct __attribute__((packed)) {
         uint8_t index;
         char key[32];
@@ -239,10 +247,10 @@ class KeyValCallbacks : public NimBLECharacteristicCallbacks
             Serial.println(value.length());
         }
     }
-} KEYVAL_CALLBACKS;
+} KEYVAL_CALLBACKS; // }}}
 
 class VectorCallbacks : public NimBLECharacteristicCallbacks
-{
+{ // {{{
     typedef struct __attribute__((packed)) {
         uint8_t index;
         uint8_t count;
@@ -278,19 +286,19 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
             Serial.println(value.length());
         }
     }
-} VECTOR_CALLBACKS;
+} VECTOR_CALLBACKS; // }}}
 
 class FlushCallbacks : public NimBLECharacteristicCallbacks
-{
+{ // {{{
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
     {
         STATE.hostMsg = characteristic->getValue();
         DISP_DEBOUNCE = 100;
     }
-} FLUSH_CALLBACKS;
+} FLUSH_CALLBACKS; // }}}
 
 void setup()
-{
+{ // {{{
     Serial.begin(115200);
     delay(5000);
 
@@ -356,10 +364,10 @@ void setup()
     // just delaying here so folks can look at gabe for a bit
     Serial.println("observing gabe");
     delay(2000);
-}
+} // }}}
 
 void loop()
-{
+{ // {{{
     static unsigned long LAST_MS = 0;
 
     auto now = millis();
@@ -398,11 +406,11 @@ void loop()
     // delay(1);
 
     delay(10);
-}
+} // }}}
 
 void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
               const uint8_t &size = 1, const bool &wrap = false)
-{
+{ // {{{
     if (x >= 0 && y >= 0) {
         MF_DISPLAY.setCursor(x, y);
     }
@@ -410,19 +418,19 @@ void drawText(const char *text, const int16_t &x = -1, const int16_t &y = -1,
     MF_DISPLAY.setTextColor(FG_COLOR);
     MF_DISPLAY.setTextWrap(wrap);
     MF_DISPLAY.print(text);
-}
+} // }}}
 
 void drawLogo(int16_t &x, const int16_t &y = 0)
-{
+{ // {{{
     MF_DISPLAY.fillRoundRect(x, y, 101, 101, 3, FG_COLOR);
     MF_DISPLAY.fillCircle(x + 50, y + 50, 31, BG_COLOR);
     MF_DISPLAY.fillCircle(x + 50, y + 50, 23, FG_COLOR);
     x += 101;
-}
+} // }}}
 
 void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::string &value,
                   const Points &points)
-{
+{ // {{{
     const int16_t w = SPARKBOX_WIDTH;
     const int16_t h = SPARKBOX_HEIGHT;
     const int16_t hpad = 8;
@@ -467,11 +475,11 @@ void drawSparkbox(int16_t &x, const int16_t &y, std::string &title, const std::s
     }
 
     x += w;
-}
+} // }}}
 
 void drawDiscreteBox(int16_t &x, const int16_t &y, const std::string &title,
                      const std::string &value)
-{
+{ // {{{
     const int16_t w = 209;
     const int16_t h = 26;
     const int16_t hpad = 8;
@@ -485,10 +493,10 @@ void drawDiscreteBox(int16_t &x, const int16_t &y, const std::string &title,
     }
 
     x += w;
-}
+} // }}}
 
 void drawStatic()
-{
+{ // {{{
     int16_t x = 0;
     int16_t y = 0;
 
@@ -543,4 +551,4 @@ void drawStatic()
     // host message if provided (usually a timestamp)
     x = MF_DISPLAY.width() - (6 * strlen(STATE.hostMsg.c_str())) - 4;
     drawText(STATE.hostMsg.c_str(), x, y);
-}
+} // }}}
