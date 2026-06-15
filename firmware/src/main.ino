@@ -3,6 +3,7 @@
 #include <limits>
 #include <sstream>
 
+#include <Adafruit_MAX1704X.h>
 #include <Adafruit_ThinkInk.h>
 #include <NimBLEDevice.h>
 #include <esp_sleep.h>
@@ -31,6 +32,8 @@
 
 NimBLEServer *BLE_SERVER = nullptr;
 std::string BLE_NAME = "INKTF";
+
+Adafruit_MAX17048 maxlipo;
 
 bool INVERTED = false;
 #define FG_COLOR (INVERTED ? EPD_WHITE : EPD_BLACK)
@@ -300,7 +303,13 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 void setup()
 { // {{{
     Serial.begin(115200);
-    delay(5000);
+    delay(2000);
+
+    Serial.println("setting up i2c interface");
+    while (!maxlipo.begin()) {
+      Serial.println("failed to setup MAX17048");
+      delay(1000);
+    }
 
     Serial.println("setting up ble device and service");
     NimBLEDevice::init("");
@@ -369,6 +378,7 @@ void setup()
 void loop()
 { // {{{
     static unsigned long LAST_MS = 0;
+    static unsigned long BATT_DEBOUNCE = 1000;
 
     auto now = millis();
     auto delta = now - LAST_MS;
@@ -389,6 +399,14 @@ void loop()
         drawStatic();
         MF_DISPLAY.display();
         MF_DISPLAY.powerDown();
+        Serial.println("drew to display");
+    }
+
+    if (BATT_DEBOUNCE > 0 && BATT_DEBOUNCE > delta) {
+        BATT_DEBOUNCE -= delta;
+    } else if (BATT_DEBOUNCE > 0) {
+      Serial.printf("batt: %0.1f%% total, %0.1f%% rate, %f mV\n", maxlipo.cellPercent(), maxlipo.chargeRate(), maxlipo.cellVoltage());
+      BATT_DEBOUNCE = 1000;
     }
 
     LAST_MS = now;
