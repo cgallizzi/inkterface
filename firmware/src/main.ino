@@ -134,6 +134,7 @@ struct State { // {{{
     std::string midLine{"No User"};
     std::string botLine{"No Activity"};
     std::string hostMsg{""};
+    std::string battLine{""};
 
     KeyVals keyvals{9};
     std::vector<Points> sparks{6};
@@ -307,8 +308,8 @@ void setup()
 
     Serial.println("setting up i2c interface");
     while (!maxlipo.begin()) {
-      Serial.println("failed to setup MAX17048");
-      delay(1000);
+        Serial.println("failed to setup MAX17048");
+        delay(1000);
     }
 
     Serial.println("setting up ble device and service");
@@ -379,6 +380,8 @@ void loop()
 { // {{{
     static unsigned long LAST_MS = 0;
     static unsigned long BATT_DEBOUNCE = 1000;
+    static float last_battp = 0;
+    static float last_battv = 0;
 
     auto now = millis();
     auto delta = now - LAST_MS;
@@ -405,8 +408,20 @@ void loop()
     if (BATT_DEBOUNCE > 0 && BATT_DEBOUNCE > delta) {
         BATT_DEBOUNCE -= delta;
     } else if (BATT_DEBOUNCE > 0) {
-      Serial.printf("batt: %0.1f%% total, %0.1f%% rate, %f mV\n", maxlipo.cellPercent(), maxlipo.chargeRate(), maxlipo.cellVoltage());
-      BATT_DEBOUNCE = 1000;
+        float battp = maxlipo.cellPercent();
+        float battv = maxlipo.cellVoltage();
+        if (abs(battp - last_battp) > 1 || abs(battv - last_battv) > 0.01) {
+            last_battp = battp;
+            last_battv = battv;
+            Serial.printf("batt: %0.1f%% total, %0.1f%% rate, %0.2f V\n", battp,
+                          maxlipo.chargeRate(), battv);
+            std::stringstream line;
+            line << std::fixed << std::setprecision(0) << battp << "% (" << std::fixed
+                 << std::setprecision(2) << battv << " V)";
+            STATE.battLine = line.str();
+            DISP_DEBOUNCE = 10;
+        }
+        BATT_DEBOUNCE = 1000;
     }
 
     LAST_MS = now;
@@ -559,14 +574,19 @@ void drawStatic()
     x += 5;
     drawSparkbox(x, y, STATE.keyvals[8].key, STATE.keyvals[8].val, STATE.sparks[5]);
 
+    // battery state
+    x = 5;
+    y = MF_DISPLAY.height() - 24;
+    drawText(STATE.battLine.c_str(), x, y);
+
     // version tag
     std::stringstream tag;
     tag << BLE_NAME << " " << GIT_REVISION << " " << INTERFACE_VERSION;
-    x = 4;
+    x = 5;
     y = MF_DISPLAY.height() - 12;
     drawText(tag.str().c_str(), x, y);
 
     // host message if provided (usually a timestamp)
-    x = MF_DISPLAY.width() - (6 * strlen(STATE.hostMsg.c_str())) - 4;
+    x = MF_DISPLAY.width() - (6 * strlen(STATE.hostMsg.c_str())) - 5;
     drawText(STATE.hostMsg.c_str(), x, y);
 } // }}}
