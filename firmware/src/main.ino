@@ -30,6 +30,9 @@
 
 #define INTERFACE_VERSION "IFv01"
 
+// minimum voltage battery can reach before we go into deep sleep
+#define BATT_MINV 2.9
+
 NimBLEServer *BLE_SERVER = nullptr;
 std::string BLE_NAME = "INKTF";
 
@@ -38,6 +41,31 @@ Adafruit_MAX17048 maxlipo;
 bool INVERTED = false;
 #define FG_COLOR (INVERTED ? EPD_WHITE : EPD_BLACK)
 #define BG_COLOR (INVERTED ? EPD_BLACK : EPD_WHITE)
+
+class DualPrint : public Print
+{
+  public:
+    DualPrint(Print &a, Print &b)
+        : _a(a)
+        , _b(b)
+    {
+    }
+    size_t write(uint8_t c) override
+    {
+        _a.write(c);
+        return _b.write(c);
+    }
+    size_t write(const uint8_t *buffer, size_t size) override
+    {
+        _a.write(buffer, size);
+        return _b.write(buffer, size);
+    }
+
+  private:
+    Print &_a;
+    Print &_b;
+};
+DualPrint Debug(Serial, Serial1);
 
 class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
 { // {{{
@@ -184,7 +212,7 @@ class ServerCallbacks : public NimBLEServerCallbacks
 { // {{{
     void onConnect(NimBLEServer *server, NimBLEConnInfo &conn) override
     {
-        Serial.println("got connection");
+        Debug.println("got connection");
         // we don't want any other devices to see us once we are connected
         // to a host
         NimBLEDevice::stopAdvertising();
@@ -193,8 +221,8 @@ class ServerCallbacks : public NimBLEServerCallbacks
 
     void onDisconnect(NimBLEServer *server, NimBLEConnInfo &conn, int reason) override
     {
-        Serial.print("got disconnect event, connected count: ");
-        Serial.println(server->getConnectedCount());
+        Debug.print("got disconnect event, connected count: ");
+        Debug.println(server->getConnectedCount());
         // connected count appears to be updated after this callback is
         // triggered, so the count will be at least 1 higher than reality
         if (server->getConnectedCount() <= 1) {
@@ -220,11 +248,11 @@ class StatusLineCallbacks : public NimBLECharacteristicCallbacks
         } else if (uuid == BOTLINE_UUID && STATE.botLine != value) {
             STATE.botLine = value;
         } else if (uuid != TOPLINE_UUID && uuid != MIDLINE_UUID && uuid != BOTLINE_UUID) {
-            Serial.print("Got value (");
-            Serial.print(value.c_str());
-            Serial.print(") for unknown UUID (");
-            Serial.print(uuid.toString().c_str());
-            Serial.println("), ignoring.");
+            Debug.print("Got value (");
+            Debug.print(value.c_str());
+            Debug.print(") for unknown UUID (");
+            Debug.print(uuid.toString().c_str());
+            Debug.println("), ignoring.");
             return;
         }
     }
@@ -247,8 +275,8 @@ class KeyValCallbacks : public NimBLECharacteristicCallbacks
             STATE.keyvals[msg.index].key = msg.key;
             STATE.keyvals[msg.index].val = msg.val;
         } else {
-            Serial.print("got bad keyval write, size: ");
-            Serial.println(value.length());
+            Debug.print("got bad keyval write, size: ");
+            Debug.println(value.length());
         }
     }
 } KEYVAL_CALLBACKS; // }}}
@@ -270,14 +298,14 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
         Msg msg;
         if (value.length() >= 2) {
             memcpy(&msg, value.data(), sizeof(Msg));
-            Serial.print("got vector for index (");
-            Serial.print(msg.index);
-            Serial.print(") with ");
-            Serial.print(msg.count);
-            Serial.print(" values, min ");
-            Serial.print(msg.minVal);
-            Serial.print(", max ");
-            Serial.println(msg.maxVal);
+            Debug.print("got vector for index (");
+            Debug.print(msg.index);
+            Debug.print(") with ");
+            Debug.print(msg.count);
+            Debug.print(" values, min ");
+            Debug.print(msg.minVal);
+            Debug.print(", max ");
+            Debug.println(msg.maxVal);
             STATE.sparks[msg.index].clear();
             STATE.sparks[msg.index].yMin = msg.minVal;
             STATE.sparks[msg.index].yMax = msg.maxVal;
@@ -286,8 +314,8 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
                                                             msg.values[i + 1] / 255.0);
             }
         } else {
-            Serial.print("got bad vectors write, size: ");
-            Serial.println(value.length());
+            Debug.print("got bad vectors write, size: ");
+            Debug.println(value.length());
         }
     }
 } VECTOR_CALLBACKS; // }}}
@@ -302,17 +330,19 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 } FLUSH_CALLBACKS; // }}}
 
 void setup()
-{ // {{{
-    Serial.begin(115200);
+{                          // {{{
+    Serial.begin(115200);  // usb serial
+    Serial1.begin(115200); // rx/tx pins
+    // these interfaces are combined in the Debug instance
     delay(2000);
 
-    Serial.println("setting up i2c interface");
+    Debug.println("setting up i2c interface");
     while (!maxlipo.begin()) {
-        Serial.println("failed to setup MAX17048");
+        Debug.println("failed to setup MAX17048");
         delay(1000);
     }
 
-    Serial.println("setting up ble device and service");
+    Debug.println("setting up ble device and service");
     NimBLEDevice::init("");
     NimBLEDevice::setPower(2); // we don't need much power
     NimBLEDevice::setMTU(256); // bump the mtu to fit a decent number of points
@@ -345,7 +375,7 @@ void setup()
 
     BLE_SERVER->start();
 
-    Serial.println("initializing display");
+    Debug.println("initializing display");
     pinMode(EPD_EN, OUTPUT);
     digitalWrite(EPD_EN, HIGH);
     STATE.reset();
@@ -356,7 +386,7 @@ void setup()
     MF_DISPLAY.display();
     DISP_DEBOUNCE = 10;
 
-    Serial.println("starting ble advert");
+    Debug.println("starting ble advert");
     uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
     std::stringstream name;
     name << "INKTF-";
@@ -372,7 +402,7 @@ void setup()
     NimBLEDevice::startAdvertising();
 
     // just delaying here so folks can look at gabe for a bit
-    Serial.println("observing gabe");
+    Debug.println("observing gabe");
     delay(2000);
 } // }}}
 
@@ -387,22 +417,8 @@ void loop()
     auto delta = now - LAST_MS;
     if (now < LAST_MS) {
         // handling rollover
-        Serial.println("handling time rollover");
+        Debug.println("handling time rollover");
         delta = (std::numeric_limits<unsigned long>::max() - LAST_MS) + now;
-    }
-
-    if (DISP_DEBOUNCE > 0 && DISP_DEBOUNCE > delta) {
-        DISP_DEBOUNCE -= delta;
-    } else if (DISP_DEBOUNCE > 0) {
-        Serial.println("drawing to display");
-        DISP_DEBOUNCE = 0;
-        MF_DISPLAY.begin(THINKINK_MONO);
-        MF_DISPLAY.clearBuffer();
-        MF_DISPLAY.fillScreen(BG_COLOR);
-        drawStatic();
-        MF_DISPLAY.display();
-        MF_DISPLAY.powerDown();
-        Serial.println("drew to display");
     }
 
     if (BATT_DEBOUNCE > 0 && BATT_DEBOUNCE > delta) {
@@ -413,8 +429,14 @@ void loop()
         if (abs(battp - last_battp) > 1 || abs(battv - last_battv) > 0.01) {
             last_battp = battp;
             last_battv = battv;
-            Serial.printf("batt: %0.1f%% total, %0.1f%% rate, %0.2f V\n", battp,
-                          maxlipo.chargeRate(), battv);
+            Debug.print("batt: ");
+            Debug.print(battp, 1);
+            Debug.print("% total, ");
+            Debug.print(maxlipo.chargeRate(), 1);
+            Debug.print("% rate, ");
+            Debug.print(battv, 2);
+            Debug.println(" V");
+            // Debug.println("batt: %0.1f%% total, %0.1f%% rate, %0.2f V\n", battp, maxlipo.chargeRate(), battv);
             std::stringstream line;
             line << std::fixed << std::setprecision(0) << battp << "% (" << std::fixed
                  << std::setprecision(2) << battv << " V)";
@@ -424,20 +446,49 @@ void loop()
         BATT_DEBOUNCE = 1000;
     }
 
-    LAST_MS = now;
+    if (last_battv < BATT_MINV) {
+        Debug.println("drawing low battery message");
+        DISP_DEBOUNCE = 0;
+        MF_DISPLAY.begin(THINKINK_MONO);
+        MF_DISPLAY.clearBuffer();
+        MF_DISPLAY.fillScreen(BG_COLOR);
+        drawLowBatt();
+        MF_DISPLAY.display();
+        MF_DISPLAY.powerDown();
+        Debug.println("going into deep sleep");
+        // esp_sleep_enable_timer_wakeup(10 * 1000000ULL);
+        esp_deep_sleep_start();
+        goto loop_end;
+    }
+
+    if (DISP_DEBOUNCE > 0 && DISP_DEBOUNCE > delta) {
+        DISP_DEBOUNCE -= delta;
+    } else if (DISP_DEBOUNCE > 0) {
+        Debug.println("drawing to display");
+        DISP_DEBOUNCE = 0;
+        MF_DISPLAY.begin(THINKINK_MONO);
+        MF_DISPLAY.clearBuffer();
+        MF_DISPLAY.fillScreen(BG_COLOR);
+        drawStatic();
+        MF_DISPLAY.display();
+        MF_DISPLAY.powerDown();
+        Debug.println("drew to display");
+    }
 
     // while (digitalRead(EPD_BUSY)) {
     //   delay(1);
     // }
 
-    // Serial.println("entering light sleep");
+    // Debug.println("entering light sleep");
     // esp_sleep_enable_timer_wakeup(10 * 1000ULL);
     // esp_err_t err = esp_light_sleep_start();
-    // Serial.println("woke from light sleep");
-    // Serial.printf("After sleep, err=%s\n", esp_err_to_name(err));
-    // Serial.printf("Wake reason=%d\n", esp_sleep_get_wakeup_cause());
+    // Debug.println("woke from light sleep");
+    // Debug.print("After sleep, err=%s\n", esp_err_to_name(err));
+    // Debug.print("Wake reason=%d\n", esp_sleep_get_wakeup_cause());
     // delay(1);
 
+loop_end:
+    LAST_MS = now;
     delay(10);
 } // }}}
 
@@ -573,6 +624,34 @@ void drawStatic()
     drawSparkbox(x, y, STATE.keyvals[7].key, STATE.keyvals[7].val, STATE.sparks[4]);
     x += 5;
     drawSparkbox(x, y, STATE.keyvals[8].key, STATE.keyvals[8].val, STATE.sparks[5]);
+
+    // battery state
+    x = 5;
+    y = MF_DISPLAY.height() - 24;
+    drawText(STATE.battLine.c_str(), x, y);
+
+    // version tag
+    std::stringstream tag;
+    tag << BLE_NAME << " " << GIT_REVISION << " " << INTERFACE_VERSION;
+    x = 5;
+    y = MF_DISPLAY.height() - 12;
+    drawText(tag.str().c_str(), x, y);
+
+    // host message if provided (usually a timestamp)
+    x = MF_DISPLAY.width() - (6 * strlen(STATE.hostMsg.c_str())) - 5;
+    drawText(STATE.hostMsg.c_str(), x, y);
+} // }}}
+
+void drawLowBatt()
+{ // {{{
+    int16_t x = 0;
+    int16_t y = 0;
+
+    x = 5;
+    y = 15;
+    drawText("Please charge the battery!", x, y, 3);
+    y += 35;
+    drawText("Once charged, press reset on the back!", x, y, 2);
 
     // battery state
     x = 5;
