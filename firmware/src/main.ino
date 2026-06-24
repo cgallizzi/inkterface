@@ -436,10 +436,8 @@ void loop()
             Debug.print("% rate, ");
             Debug.print(battv, 2);
             Debug.println(" V");
-            // Debug.println("batt: %0.1f%% total, %0.1f%% rate, %0.2f V\n", battp, maxlipo.chargeRate(), battv);
             std::stringstream line;
-            line << std::fixed << std::setprecision(0) << battp << "% (" << std::fixed
-                 << std::setprecision(2) << battv << " V)";
+            line << std::fixed << std::setprecision(2) << battv << " V";
             STATE.battLine = line.str();
             DISP_DEBOUNCE = 10;
         }
@@ -474,10 +472,6 @@ void loop()
         MF_DISPLAY.powerDown();
         Debug.println("drew to display");
     }
-
-    // while (digitalRead(EPD_BUSY)) {
-    //   delay(1);
-    // }
 
     // Debug.println("entering light sleep");
     // esp_sleep_enable_timer_wakeup(10 * 1000ULL);
