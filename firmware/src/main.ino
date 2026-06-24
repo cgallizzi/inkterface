@@ -8,7 +8,9 @@
 #include <NimBLEDevice.h>
 #include <esp_sleep.h>
 
+#if defined(GABEN_STARTUP)
 #include "gaben.h"
+#endif
 
 #define SERVICE_UUID                                                                               \
     NimBLEUUID { "95c7b479-8e84-4ce7-a121-faf74bf48c84" }
@@ -334,7 +336,10 @@ void setup()
     Serial.begin(115200);  // usb serial
     Serial1.begin(115200); // rx/tx pins
     // these interfaces are combined in the Debug instance
-    delay(2000);
+
+#if defined(STARTUP_DELAY_MS)
+    delay(STARTUP_DELAY_MS);
+#endif
 
     Debug.println("setting up i2c interface");
     while (!maxlipo.begin()) {
@@ -382,7 +387,9 @@ void setup()
     MF_DISPLAY.begin(THINKINK_MONO);
     MF_DISPLAY.clearBuffer();
     MF_DISPLAY.fillScreen(BG_COLOR);
+#if defined(GABEN_STARTUP)
     MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, FG_COLOR);
+#endif
     MF_DISPLAY.display();
     DISP_DEBOUNCE = 10;
 
@@ -401,9 +408,11 @@ void setup()
     advert->enableScanResponse(false);
     NimBLEDevice::startAdvertising();
 
+#if defined(GABEN_STARTUP)
     // just delaying here so folks can look at gabe for a bit
     Debug.println("observing gabe");
     delay(2000);
+#endif
 } // }}}
 
 void loop()

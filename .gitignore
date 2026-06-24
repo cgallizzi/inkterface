@@ -12,3 +12,4 @@ sdkconfig.*
 CMakeFiles/
 meta_types/
 *.user
+*.ino.cpp
