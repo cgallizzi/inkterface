@@ -1,5 +1,6 @@
 # Inkterface, an e-ink faceplate for your Steam Machine.
 
+
 ## Required Hardware
 
 * 1 x [Adafruit ESP32 Feather with 2MB PSRAM](https://www.adafruit.com/product/5400)
@@ -54,6 +55,7 @@ front of a Steam Machine!
 
 You will need to build/flash the firmware onto the feather using the steps below.
 
+
 ## Running
 
 If you have an AppImage build, just copy it to a SteamOS device and run it like:
@@ -102,6 +104,7 @@ And it should build and flash the firmware, if you want to get setup manually:
 Of course in both cases you need to have the ESP32 Feather attached via USB and
 permission to interact with serial devices on your system!
 
+
 ## Design Docs
 
 Planning out the UI and panel design is done in a Lunacy document you can find
@@ -109,3 +112,12 @@ in the `./design` folder.
 
 Lunacy is an open source alternative to tools like Figma that can work entirely
 offline.
+
+
+## License
+
+This project is licensed under the MIT License, see LICENSE.
+
+This project depends on third-party software that is distributed under its own
+licenses. Those licenses remain applicable to the respective components and
+are not modified by this project's license.
