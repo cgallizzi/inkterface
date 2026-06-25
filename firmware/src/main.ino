@@ -45,7 +45,7 @@ bool INVERTED = false;
 #define BG_COLOR (INVERTED ? EPD_BLACK : EPD_WHITE)
 
 class DualPrint : public Print
-{
+{ // {{{
   public:
     DualPrint(Print &a, Print &b)
         : _a(a)
@@ -66,7 +66,7 @@ class DualPrint : public Print
   private:
     Print &_a;
     Print &_b;
-};
+}; // }}}
 DualPrint Debug(Serial, Serial1);
 
 class CustomDisp : public ThinkInk_583_Mono_AAAMFGN
@@ -418,6 +418,7 @@ void setup()
 void loop()
 { // {{{
     static unsigned long LAST_MS = 0;
+    static unsigned long CONN_DEBOUNCE = 5000;
     static unsigned long BATT_DEBOUNCE = 1000;
     static float last_battp = 0;
     static float last_battv = 0;
@@ -428,6 +429,24 @@ void loop()
         // handling rollover
         Debug.println("handling time rollover");
         delta = (std::numeric_limits<unsigned long>::max() - LAST_MS) + now;
+    }
+
+    if (CONN_DEBOUNCE > 0 && CONN_DEBOUNCE > delta) {
+        CONN_DEBOUNCE -= delta;
+    } else if (CONN_DEBOUNCE > 0) {
+        // NOTE: this should be handled in our SERVER_CALLBACKS but we don't
+        //       always seem to get the onDisconnect() callback and get stuck
+        //       with advertising stopped, so might as well just check here...
+        bool advertising = NimBLEDevice::getAdvertising()->isAdvertising();
+        uint8_t connections = BLE_SERVER->getConnectedCount();
+        if (!advertising && connections == 0) {
+            Debug.print("starting advertisement, we have no connections");
+            NimBLEDevice::startAdvertising();
+        } else if (advertising && connections > 0) {
+            Debug.print("stopping advertisement, we have connections");
+            NimBLEDevice::stopAdvertising();
+        }
+        CONN_DEBOUNCE = 5000;
     }
 
     if (BATT_DEBOUNCE > 0 && BATT_DEBOUNCE > delta) {
