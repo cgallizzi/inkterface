@@ -15,8 +15,7 @@
 ## Assembly
 
 Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutorial!
-
-**Coming Soon: a PDF guide!**
+Or if you'd prefer there is `./docs/Inkterface Assembly.pdf`!
 
 **Warning: The screws will thread themselves into the plastic, but be VERY gentle
 as it is easy to strip the plastic away and need to re-print parts!**
@@ -56,16 +55,36 @@ front of a Steam Machine!
 You will need to build/flash the firmware onto the feather using the steps below.
 
 
-## Running
+## Usage
 
-If you have an AppImage build, just copy it to a SteamOS device and run it like:
-* `./inkterface.AppImage`
+[Eventually we'll have a build up on Steam](https://store.steampowered.com/app/1222770)
+but until then you can build an AppImage using the instructions further down in
+this readme!
 
-That it will install and run itself as a user service. Make sure bluetooth is
-enabled on the device and then if you bring a panel nearby it should connect.
-
-You may need to hit the reset button on the back of the panel once you have it
-next to the SteamOS host machine in case it's already connected somewhere else.
+Once you have it built, take a look at `./docs/Inkterface Setup.pdf`, but the
+basics are:
+1. Enable bluetooth.
+2. In desktop mode register as an app in Steam.
+    * Or you can just run it directly.
+3. Wait for it to discover your panel.
+    * If it doesn't appear try clicking the reset button on the back and checking
+      that bluetooth is enabled.
+4. Select your panel, the name shown should match what's displayed on the inkterface!
+5. On the configure screen, install the service using the button at the bottom
+   right.
+    * This will set itself up as a user service, so don't move the AppImage or
+      that will break, no biggie though, you'll just need to re-run it!
+    * Once the service is installed it might take 10-20 seconds for it to connect
+      to the inkterface, that's fine, it just needs to go through discovery!
+6. Finally you can click any of the readouts to adjust what they display.
+    * We have several stats built in, but if you check out `include/panel-state.hpp`
+      you can add any function that can return a `QString` or `double` and then
+      `registerCollector()` to have it show up in the list.
+      * There are some examples of stateful and idempotent collectors in `SysStats`,
+        they get registered in the `PanelState` constructor.
+7. Exit the configuration app!
+    * The service is lightweight and runs in the background, you only need to
+      run the config software to select a panel or to change what it displays!
 
 
 ## Building Interface
