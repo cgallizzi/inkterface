@@ -332,10 +332,10 @@ class FlushCallbacks : public NimBLECharacteristicCallbacks
 } FLUSH_CALLBACKS; // }}}
 
 void setup()
-{                          // {{{
-    Serial.begin(115200);  // usb serial
-    Serial1.begin(115200); // rx/tx pins
-    // these interfaces are combined in the Debug instance
+{ // {{{
+    Serial.begin(115200);
+    Serial1.begin(115200);
+    // these usb serial and rx/tx interfaces are combined in the Debug instance
 
 #if defined(STARTUP_DELAY_MS)
     delay(STARTUP_DELAY_MS);
@@ -389,6 +389,8 @@ void setup()
     MF_DISPLAY.fillScreen(BG_COLOR);
 #if defined(GABEN_STARTUP)
     MF_DISPLAY.drawXBitmap(0, 0, GABEN_BITS, GABEN_WIDTH, GABEN_HEIGHT, FG_COLOR);
+#else
+    drawStatic();
 #endif
     MF_DISPLAY.display();
     DISP_DEBOUNCE = 10;
