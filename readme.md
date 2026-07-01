@@ -14,8 +14,8 @@
 
 ## Assembly
 
-Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutorial!
-Or if you'd prefer there is `./docs/Inkterface Assembly.pdf`!
+Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutorial,
+or if you'd prefer there is a PDF version too `./docs/Inkterface Assembly.pdf`.
 
 **Warning: The screws will thread themselves into the plastic, but be VERY gentle
 as it is easy to strip the plastic away and you may need to re-print parts!**
@@ -44,8 +44,9 @@ as it is easy to strip the plastic away and you may need to re-print parts!**
       in the Steam Machine chassis.
 7. Place the board plate over the midplates, aligning the magnets and screw holes.
 8. Fasten the boardplate with 8x screws in the screw holes along the edges.
-9. Connect the e-ink panel to the breakout board, being careful not to damage
-   the cable!
+9. Connect the e-ink panel to the breakout board.
+    * Be careful when handling the flex that comes out of the panel, it is fragile
+      and should not be bent or folded.
 10. Place the battery in the recess, tucking its wire under the board plate and
     up into the clearance hole beside the feather.
 11. Insert and fasten down the battery retainer/cover.
@@ -61,7 +62,7 @@ You will need to build/flash the firmware onto the feather using the steps below
 
 [Eventually we'll have an app up on Steam](https://store.steampowered.com/app/1222770)
 but until then you can build an AppImage using the instructions further down in
-this readme!
+this readme.
 
 Once you have it built, take a look at `./docs/Inkterface Setup.pdf`, but the
 basics are:
@@ -71,28 +72,30 @@ basics are:
 3. Wait for it to discover your panel.
     * If it doesn't appear try clicking the reset button on the back and checking
       that bluetooth is enabled.
-4. Select your panel, the name shown should match what's displayed on the inkterface!
+4. Select your panel, the name shown should match what's displayed on the inkterface.
+    * They all start with an `INKTF-` prefix and then use a unique portion of the
+      panels BLE MAC address.
 5. On the configure screen, install the service using the button at the bottom
    right.
     * This will set itself up as a user service, so don't move the AppImage or
-      that will break, no biggie though, you'll just need to re-run it!
+      that will break, no biggie though, you'll just need to re-run it.
     * Once the service is installed it might take 10-20 seconds for it to connect
-      to the inkterface, that's fine, it just needs to go through discovery!
+      to the inkterface, that's fine, it just needs to go through discovery.
 6. Finally you can click any of the readouts to adjust what they display.
     * We have several stats built in, but if you check out `include/panel-state.hpp`
       you can add any function that can return a `QString` or `double` and then
       `registerCollector()` to have it show up in the list.
       * There are some examples of stateful and idempotent collectors in `SysStats`,
         they get registered in the `PanelState` constructor.
-7. Exit the configuration app!
+7. Exit the configuration app.
     * The service is lightweight and runs in the background, you only need to
-      run the config software to select a panel or to change what it displays!
+      run the config software to select a panel or to change what it displays.
 
 
 ## Building Interface
 
 If you have Qt installed you should be able to open the cmake project in Qt Creator
-and that will should work for you!
+and use that.
 
 For better distributable builds you can setup a container for wider platform
 support using the included `Containerfile`.
@@ -102,7 +105,7 @@ support using the included `Containerfile`.
 3. `distrobox enter qt69`
 4. `./scripts/build.sh deploy`
 
-That should produce an AppImage for you in the `./dist-linux-x86_64` folder!
+That should produce an AppImage for you in the `./dist-linux-x86_64` folder.
 
 This container uses an older version of Ubuntu and Qt 6.9 which should let us
 build AppImages that will work on a wide range of modern systems.
@@ -123,7 +126,7 @@ And it should build and flash the firmware, if you want to get setup manually:
 3. `pio run -t upload`
 
 Of course in both cases you need to have the ESP32 Feather attached via USB and
-permission to interact with serial devices on your system!
+permission to interact with serial devices on your system.
 
 
 ## Design Docs
