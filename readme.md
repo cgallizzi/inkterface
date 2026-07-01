@@ -18,13 +18,13 @@ Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutori
 Or if you'd prefer there is `./docs/Inkterface Assembly.pdf`!
 
 **Warning: The screws will thread themselves into the plastic, but be VERY gentle
-as it is easy to strip the plastic away and need to re-print parts!**
+as it is easy to strip the plastic away and you may need to re-print parts!**
 
 1. Print parts from `./cad` folder.
     * Individual parts are included as separate STEP files, but a combined file
       with all parts that is ready for printing on a Stratasys F370 build plate
       is also provided as `Inkterface - Print Plate.step`.
-2. Attach the ESP32 Feather and eInk Breakout to the Board Plate using 4x screws.
+2. Attach the ESP32 Feather and eInk Breakout to the board plate layer using 4x screws.
     * Having them held in place helps with soldering the connections and sizing your wires.
 3. Solder wires between the pins of the two boards.
     * MOSI/MISO/SCK/GND all connect directly as expected.
@@ -40,11 +40,13 @@ as it is easy to strip the plastic away and need to re-print parts!**
 4. Place the e-ink panel into the matching recess in the faceplate part.
 5. Fit the two midplates in.
 6. Place the 4 magnets into the recesses in each corner of of the midplates.
+    * Magnetic field orientation doesn't matter, they connect to metal slugs
+      in the Steam Machine chassis.
 7. Place the board plate over the midplates, aligning the magnets and screw holes.
 8. Fasten the boardplate with 8x screws in the screw holes along the edges.
 9. Connect the e-ink panel to the breakout board, being careful not to damage
    the cable!
-10. Place the battery in the recess, tucking it's wire under the board plate and
+10. Place the battery in the recess, tucking its wire under the board plate and
     up into the clearance hole beside the feather.
 11. Insert and fasten down the battery retainer/cover.
 12. Plug the battery connecor into the feather.
@@ -57,7 +59,7 @@ You will need to build/flash the firmware onto the feather using the steps below
 
 ## Usage
 
-[Eventually we'll have a build up on Steam](https://store.steampowered.com/app/1222770)
+[Eventually we'll have an app up on Steam](https://store.steampowered.com/app/1222770)
 but until then you can build an AppImage using the instructions further down in
 this readme!
 
