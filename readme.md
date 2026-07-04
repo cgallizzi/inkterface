@@ -6,6 +6,7 @@
 * 1 x [Adafruit ESP32 Feather with 2MB PSRAM](https://www.adafruit.com/product/5400)
 * 1 x [Adafruit eInk Breakout Friend](https://www.adafruit.com/product/4224)
 * 1 x [Adafruit 5.83" Monochrome eInk Panel](https://www.adafruit.com/product/6397)
+* 1 x [LP803860 Battery](https://www.adafruit.com/product/2011)
 * 13 x M2.5 x 5mm Pan Head Machine Screws
     * [McMaster](https://www.mcmaster.com/92000A103/)
     * [Amazon](https://www.amazon.com/dp/B0GC58C2V5)
