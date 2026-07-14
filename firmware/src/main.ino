@@ -39,6 +39,7 @@ NimBLEServer *BLE_SERVER = nullptr;
 std::string BLE_NAME = "INKTF";
 
 Adafruit_MAX17048 maxlipo;
+bool MAXLIPO_PRESENT = false;
 
 bool INVERTED = false;
 #define FG_COLOR (INVERTED ? EPD_WHITE : EPD_BLACK)
@@ -341,10 +342,11 @@ void setup()
     delay(STARTUP_DELAY_MS);
 #endif
 
+    // TODO: add support for more battery tracking on different boards, etc.
     Debug.println("setting up i2c interface");
-    while (!maxlipo.begin()) {
-        Debug.println("failed to setup MAX17048");
-        delay(1000);
+    MAXLIPO_PRESENT = maxlipo.begin();
+    if (!MAXLIPO_PRESENT) {
+        Debug.println("failed to setup MAX17048, not present on all boards!");
     }
 
     Debug.println("setting up ble device and service");
@@ -451,9 +453,9 @@ void loop()
         CONN_DEBOUNCE = 5000;
     }
 
-    if (BATT_DEBOUNCE > 0 && BATT_DEBOUNCE > delta) {
+    if (MAXLIPO_PRESENT && BATT_DEBOUNCE > 0 && BATT_DEBOUNCE > delta) {
         BATT_DEBOUNCE -= delta;
-    } else if (BATT_DEBOUNCE > 0) {
+    } else if (MAXLIPO_PRESENT && BATT_DEBOUNCE > 0) {
         float battp = maxlipo.cellPercent();
         float battv = maxlipo.cellVoltage();
         if (abs(battp - last_battp) > 1 || abs(battv - last_battv) > 0.01) {

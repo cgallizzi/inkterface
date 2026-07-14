@@ -3,7 +3,12 @@
 
 ## Required Hardware
 
-* 1 x [Adafruit ESP32 Feather with 2MB PSRAM](https://www.adafruit.com/product/5400)
+* 1 x Adafruit ESP32 Feather with 2MB PSRAM
+    * [Link to V1 Board, as shown in the assembly video and document!](https://www.adafruit.com/product/5477)
+    * [Link to V2 Board, accidentally the only link previously!](https://www.adafruit.com/product/5400)
+    * Both the V1 and V2 modules work, but they have different pinouts, make sure
+      to check if you see the "V2" silkscreen on your board and choose the correct
+      pinout sheet and environment when building the firmware!
 * 1 x [Adafruit eInk Breakout Friend](https://www.adafruit.com/product/4224)
 * 1 x [Adafruit 5.83" Monochrome eInk Panel](https://www.adafruit.com/product/6397)
 * 1 x [LP803860 Battery](https://www.adafruit.com/product/2011)
@@ -18,8 +23,8 @@
 Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutorial,
 or if you'd prefer there is a PDF version too `./docs/Inkterface Assembly.pdf`.
 
-**Warning: The screws will thread themselves into the plastic, but be VERY gentle
-as it is easy to strip the plastic away and you may need to re-print parts!**
+**_Warning: The screws will thread themselves into the plastic, but be VERY gentle
+as it is easy to strip the plastic away and you may need to re-print parts!_**
 
 1. Print parts from `./cad` folder.
     * Individual parts are included as separate STEP files, but a combined file
@@ -31,13 +36,22 @@ as it is easy to strip the plastic away and you may need to re-print parts!**
     * MOSI/MISO/SCK/GND all connect directly as expected.
     * 3V3 from the feather connects to VIN on the breakout.
         * The 3V3 pin on the breakout is a 3V3 output.
-    * Then connect the following, like Feather -> Breakout:
+    * For the **_V1_** feather connect these pins, like Feather -> Breakout:
         * PIN 6 -> ENA
         * PIN 9 -> BUSY
         * PIN 10 -> RST
         * PIN 11 -> SRCS
         * PIN 12 -> D/C
         * PIN 13 -> ECS
+    * For the **_V2_** feather connect these pins, like Feather -> Breakout:
+        * PIN 32 -> EN
+        * PIN 15 -> BUS
+        * PIN 33 -> RST
+        * PIN 27 -> SRCS
+        * PIN 12 -> D/C
+        * PIN 13 -> ECS
+    * **_NOTE:_** On both feather versions we connect to pins in the same physical
+        positions, but they are different logical pins in the firmware.
 4. Place the e-ink panel into the matching recess in the faceplate part.
 5. Fit the two midplates in.
 6. Place the 4 magnets into the recesses in each corner of of the midplates.
@@ -114,20 +128,31 @@ build AppImages that will work on a wide range of modern systems.
 
 ## Building Firmware
 
+For a mix of convenience and approachability this project uses
+[PlatformIO](https://platformio.org), and in particular here you'll use the
+[pio run](https://docs.platformio.org/en/latest/core/userguide/cmd_run.html)
+command. Reading up on them can be useful, especial options like `--upload-port`
+which could help if you have multiple serial ports.
+
 If you're using the container from above you can just do:
 
 1. `distrobox enter qt69`
 2. `cd ./firmware`
-3. `pio run -t upload`
+3. If you have a **_V1_** feather: `pio run -e featherv1 -t upload`
+4. If you have a **_V2_** feather: `pio run -e featherv2 -t upload`
 
 And it should build and flash the firmware, if you want to get setup manually:
 
 1. Install [PlatformIO](https://platformio.org) for your system.
 2. `cd ./firmware`
-3. `pio run -t upload`
+3. If you have a **_V1_** feather: `pio run -e featherv1 -t upload`
+4. If you have a **_V2_** feather: `pio run -e featherv2 -t upload`
 
 Of course in both cases you need to have the ESP32 Feather attached via USB and
 permission to interact with serial devices on your system.
+
+**_NOTE:_** You can add build definitions and support for other boards by modifying
+the `platformio.ini`, check it out to see the V1 and V2 feather environments.
 
 
 ## Design Docs
