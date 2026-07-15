@@ -3,7 +3,7 @@
 
 ## Required Hardware
 
-* 1 x Adafruit ESP32 Feather with 2MB PSRAM
+* 1 x Adafruit ESP32-S3 Feather w/ 2MB PSRAM
     * [Link to V1 Board, as shown in the assembly video and document!](https://www.adafruit.com/product/5477)
     * [Link to V2 Board, accidentally the only link previously!](https://www.adafruit.com/product/5400)
     * Both the V1 and V2 modules work, but they have different pinouts, make sure
