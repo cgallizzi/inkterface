@@ -44,8 +44,8 @@ as it is easy to strip the plastic away and you may need to re-print parts!_**
         * PIN 12 -> D/C
         * PIN 13 -> ECS
     * For the **_V2_** feather connect these pins, like Feather -> Breakout:
-        * PIN 32 -> EN
-        * PIN 15 -> BUS
+        * PIN 32 -> ENA
+        * PIN 15 -> BUSY
         * PIN 33 -> RST
         * PIN 27 -> SRCS
         * PIN 12 -> D/C
