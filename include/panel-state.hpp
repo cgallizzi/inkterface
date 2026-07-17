@@ -12,6 +12,7 @@
 #include <QSettings>
 #include <QTimer>
 
+#include "artwork.hpp"
 #include "steam.hpp"
 #include "sysstats.hpp"
 
@@ -234,12 +235,15 @@ class PanelState : public QObject
     Q_PROPERTY(QString botLine READ botLine NOTIFY dataChanged)
     Q_PROPERTY(QList<PanelField *> fields READ fields NOTIFY fieldsChanged)
     Q_PROPERTY(QList<PanelCollector *> collectors READ collectors NOTIFY collectorsChanged)
+    Q_PROPERTY(bool artworkEnabled READ artworkEnabled WRITE setArtworkEnabled NOTIFY
+                   artworkEnabledChanged)
 
   public:
     explicit PanelState(QObject *parent = nullptr)
         : QObject(parent)
         , m_steam(new steam::Steam(this))
         , m_stats(new SysStats(this))
+        , m_artwork(new Artwork(m_steam, this))
         , m_updateTimer(new QTimer(this))
     {
         // str only collectors
@@ -298,6 +302,31 @@ class PanelState : public QObject
         registerCollector(u"Uptime"_s, u"UPTIME"_s, u"System uptime in seconds."_s,
                           std::bind(&SysStats::getUptime, m_stats),
                           [](double v) { return u"%1 S"_s.arg(QString::number(v, 'f', 0)); });
+        registerCollector(u"Game Time"_s, u"PLAYED"_s,
+                          u"Total playtime of the currently running game."_s, [this]() -> QString {
+                              const auto &app = m_steam->runningApp();
+                              if (app.appid.isEmpty()) {
+                                  return u"--"_s;
+                              }
+                              const double minutes = m_steam->appPlaytimeMinutes(app.appid);
+                              if (minutes < 0) {
+                                  return u"--"_s;
+                              } else if (minutes < 60) {
+                                  return u"%1 MIN"_s.arg(QString::number(minutes, 'f', 0));
+                              }
+                              return u"%1 HRS"_s.arg(QString::number(minutes / 60.0, 'f', 1));
+                          });
+        registerCollector(u"Achievements"_s, u"ACHIEVE"_s,
+                          u"Achievements unlocked in the currently running game."_s,
+                          [this]() -> QString {
+                              const auto &app = m_steam->runningApp();
+                              const auto counts = m_steam->achievements(app.appid);
+                              if (app.appid.isEmpty() || counts.second <= 0) {
+                                  return u"--"_s;
+                              }
+                              return u"%1/%2"_s.arg(QString::number(counts.first),
+                                                    QString::number(counts.second));
+                          });
 
         /* other ideas for things to track/display:
          *  active download progress as discrete bar
@@ -316,6 +345,9 @@ class PanelState : public QObject
 
         connect(m_steam, &steam::Steam::appStarted, this, &PanelState::onAppStarted);
         connect(m_steam, &steam::Steam::appStopped, this, &PanelState::onAppStopped);
+        connect(m_steam, &steam::Steam::achievementsUpdated, this,
+                &PanelState::onAchievementsUpdated);
+        connect(m_artwork, &Artwork::frameReady, this, &PanelState::artworkFrame);
         m_steam->watchConsoleLog(true);
 
         // TODO: allow configuring different numbers/layouts of fields
@@ -361,10 +393,37 @@ class PanelState : public QObject
         emit collectorsChanged();
     }
 
+    bool artworkEnabled() const
+    {
+        QSettings settings;
+        return settings.value(u"artworkEnabled"_s, true).toBool();
+    }
+    void setArtworkEnabled(bool enabled)
+    {
+        if (enabled == artworkEnabled()) {
+            return;
+        }
+        QSettings settings;
+        settings.setValue(u"artworkEnabled"_s, enabled);
+        emit artworkEnabledChanged();
+        const auto &app = m_steam->runningApp();
+        if (!enabled) {
+            emit artworkClear();
+        } else if (!app.appid.isEmpty()) {
+            m_artwork->composeForApp(app, m_steam->appPlaytimeMinutes(app.appid),
+                                     m_steam->achievements(app.appid));
+        }
+    }
+
   signals:
     void dataChanged();
     void fieldsChanged();
     void collectorsChanged();
+    void artworkEnabledChanged();
+    // a composed 1bpp frame ready to be pushed to the panel
+    void artworkFrame(QByteArray bits, quint16 width, quint16 height);
+    // the panel should fall back to the telemetry layout
+    void artworkClear();
 
   public slots:
     void start() { m_updateTimer->start(); }
@@ -409,12 +468,34 @@ class PanelState : public QObject
     }
 
   private slots:
-    void onAppStarted([[maybe_unused]] steam::App details) { updateState(); }
-    void onAppStopped([[maybe_unused]] steam::App details) { updateState(); }
+    void onAppStarted(steam::App details)
+    {
+        m_steam->fetchAchievements(details.appid);
+        if (artworkEnabled()) {
+            m_artwork->composeForApp(details, m_steam->appPlaytimeMinutes(details.appid),
+                                     m_steam->achievements(details.appid));
+        }
+        updateState();
+    }
+    void onAppStopped([[maybe_unused]] steam::App details)
+    {
+        emit artworkClear();
+        updateState();
+    }
+    void onAchievementsUpdated(QString appid)
+    {
+        const auto &app = m_steam->runningApp();
+        if (artworkEnabled() && !app.appid.isEmpty() && app.appid == appid) {
+            m_artwork->composeForApp(app, m_steam->appPlaytimeMinutes(app.appid),
+                                     m_steam->achievements(app.appid));
+        }
+        updateState();
+    }
 
   private:
     steam::Steam *m_steam = nullptr;
     SysStats *m_stats = nullptr;
+    Artwork *m_artwork = nullptr;
     QTimer *m_updateTimer = nullptr;
 
     bool m_dirty = false;

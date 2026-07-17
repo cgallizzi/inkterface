@@ -20,6 +20,8 @@
     QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871903" }
 #define VECTOR_UUID                                                                                \
     QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871904" }
+#define ARTWORK_UUID                                                                               \
+    QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a871905" }
 #define FLUSH_UUID                                                                                 \
     QUuid { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
 
@@ -50,6 +52,9 @@ Panel::Panel(QObject *parent)
     m_sendTimer->setInterval(SEND_INTERVAL);
     connect(m_sendTimer, &QTimer::timeout, this, &Panel::sendState);
     m_sendTimer->start();
+
+    connect(m_state, &PanelState::artworkFrame, this, &Panel::onArtworkFrame);
+    connect(m_state, &PanelState::artworkClear, this, &Panel::onArtworkClear);
 }
 
 void Panel::stop()
@@ -118,6 +123,9 @@ void Panel::onServiceStateChanged(QLowEnergyService::ServiceState state)
     qDebug() << "Found " << m_service->characteristics().count() << "characteristics!";
     m_sendTimer->start(250);
     m_lastComms = std::chrono::steady_clock::now();
+    // if a game is already being played, make sure the fresh connection
+    // gets the artwork frame too
+    queueArtworkFrame();
 }
 
 void Panel::onServiceError(QLowEnergyService::ServiceError error)
@@ -128,10 +136,103 @@ void Panel::onServiceError(QLowEnergyService::ServiceError error)
 }
 
 void Panel::onServiceCharacteristicWritten(
-    [[maybe_unused]] const QLowEnergyCharacteristic &characteristic,
-    [[maybe_unused]] const QByteArray &value)
+    const QLowEnergyCharacteristic &characteristic, [[maybe_unused]] const QByteArray &value)
 {
     m_lastComms = std::chrono::steady_clock::now();
+    if (characteristic.uuid() == QBluetoothUuid(ARTWORK_UUID)) {
+        m_artSending = false;
+        if (!m_artQueue.isEmpty()) {
+            m_artQueue.removeFirst();
+        }
+        sendArtwork();
+    }
+}
+
+void Panel::onArtworkFrame(QByteArray bits, quint16 width, quint16 height)
+{
+    m_pendingArtBits = bits;
+    m_pendingArtWidth = width;
+    m_pendingArtHeight = height;
+    queueArtworkFrame();
+}
+
+void Panel::onArtworkClear()
+{
+    m_pendingArtBits.clear();
+    m_pendingArtWidth = 0;
+    m_pendingArtHeight = 0;
+    m_artQueue.clear();
+    m_artSending = false;
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
+    auto c = m_service->characteristic(ARTWORK_UUID);
+    if (c.isValid()) {
+        m_artQueue.append(QByteArray(1, char(0x03)));
+        sendArtwork();
+    }
+}
+
+void Panel::queueArtworkFrame()
+{
+    m_artQueue.clear();
+    m_artSending = false;
+    if (m_pendingArtBits.isEmpty()) {
+        return;
+    }
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        return;
+    }
+    auto c = m_service->characteristic(ARTWORK_UUID);
+    if (!c.isValid()) {
+        qDebug() << "panel firmware has no artwork support, skipping frame";
+        return;
+    }
+
+    QByteArray begin;
+    begin.append(char(0x00));
+    begin.append(char(m_pendingArtWidth & 0xFF));
+    begin.append(char((m_pendingArtWidth >> 8) & 0xFF));
+    begin.append(char(m_pendingArtHeight & 0xFF));
+    begin.append(char((m_pendingArtHeight >> 8) & 0xFF));
+    m_artQueue.append(begin);
+
+    // 5 bytes of chunk header, 3 bytes of ATT header
+    const int mtu = m_controller ? m_controller->mtu() : 23;
+    const int chunkSize = qBound(15, mtu - 8, 244);
+    for (qsizetype offset = 0; offset < m_pendingArtBits.size(); offset += chunkSize) {
+        QByteArray chunk;
+        chunk.append(char(0x01));
+        chunk.append(char(offset & 0xFF));
+        chunk.append(char((offset >> 8) & 0xFF));
+        chunk.append(char((offset >> 16) & 0xFF));
+        chunk.append(char((offset >> 24) & 0xFF));
+        chunk.append(m_pendingArtBits.mid(offset, chunkSize));
+        m_artQueue.append(chunk);
+    }
+    m_artQueue.append(QByteArray(1, char(0x02)));
+
+    qDebug() << "queued artwork frame in" << m_artQueue.size() << "chunks of" << chunkSize
+             << "bytes";
+    sendArtwork();
+}
+
+void Panel::sendArtwork()
+{
+    if (m_artSending || m_artQueue.isEmpty()) {
+        return;
+    }
+    if (!m_service || m_service->state() != QLowEnergyService::RemoteServiceDiscovered) {
+        m_artQueue.clear();
+        return;
+    }
+    auto c = m_service->characteristic(ARTWORK_UUID);
+    if (!c.isValid()) {
+        m_artQueue.clear();
+        return;
+    }
+    m_artSending = true;
+    m_service->writeCharacteristic(c, m_artQueue.first());
 }
 
 void Panel::writeLine(const QUuid &uuid, const QString &value)
@@ -274,6 +375,8 @@ void Panel::clearConnection()
     }
     m_device = QBluetoothDeviceInfo();
     m_connecting = false;
+    m_artQueue.clear();
+    m_artSending = false;
 }
 
 void Panel::sendState()

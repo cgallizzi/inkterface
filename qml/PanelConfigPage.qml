@@ -193,6 +193,12 @@ Item {
 
                 onClicked: svcMgr.isInstalled ? svcMgr.uninstallService() : svcMgr.installService()
             }
+
+            VButton {
+                text: "Box Art: " + (panelState.artworkEnabled ? "On" : "Off")
+
+                onClicked: panelState.artworkEnabled = !panelState.artworkEnabled
+            }
         }
     }
 

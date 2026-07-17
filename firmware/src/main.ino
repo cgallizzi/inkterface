@@ -24,11 +24,20 @@
     NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871903" }
 #define VECTOR_UUID                                                                                \
     NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871904" }
+#define ARTWORK_UUID                                                                               \
+    NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a871905" }
 #define FLUSH_UUID                                                                                 \
     NimBLEUUID { "d6f4c07e-4a21-4c69-bd15-43a38a8719FF" }
 
 #define SPARKBOX_HEIGHT 100
 #define SPARKBOX_WIDTH 209
+
+// full-panel artwork framebuffer, 1bpp row-major with MSB-first bytes
+// (the same layout Adafruit_GFX::drawBitmap() expects)
+#define ART_MAX_WIDTH 648
+#define ART_MAX_HEIGHT 480
+#define ART_BUFFER_SIZE ((ART_MAX_WIDTH / 8) * ART_MAX_HEIGHT)
+static uint8_t ART_BUFFER[ART_BUFFER_SIZE];
 
 #define INTERFACE_VERSION "IFv01"
 
@@ -170,12 +179,22 @@ struct State { // {{{
     KeyVals keyvals{9};
     std::vector<Points> sparks{6};
 
+    // when true the display shows the host-provided ART_BUFFER frame
+    // instead of the telemetry layout
+    bool artMode = false;
+    uint16_t artWidth = 0;
+    uint16_t artHeight = 0;
+
     void reset()
     {
         keyvals.clear();
         keyvals.resize(9);
         sparks.clear();
         sparks.resize(6);
+
+        artMode = false;
+        artWidth = 0;
+        artHeight = 0;
 
         uint32_t addr = (uint64_t)NimBLEDevice::getAddress() & 0xFFFFFF;
         std::stringstream name;
@@ -210,6 +229,7 @@ struct State { // {{{
 } STATE; // }}}
 
 void drawStatic();
+void drawArt();
 
 class ServerCallbacks : public NimBLEServerCallbacks
 { // {{{
@@ -323,6 +343,76 @@ class VectorCallbacks : public NimBLECharacteristicCallbacks
     }
 } VECTOR_CALLBACKS; // }}}
 
+class ArtworkCallbacks : public NimBLECharacteristicCallbacks
+{ // {{{
+    // opcodes for the artwork transfer protocol, all multi-byte ints are LE:
+    //   0x00 BEGIN: uint16 width, uint16 height; resets the frame
+    //   0x01 DATA:  uint32 byte offset, then raw 1bpp payload bytes
+    //   0x02 SHOW:  switch the display to the uploaded frame
+    //   0x03 CLEAR: return the display to the telemetry layout
+    void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
+    {
+        std::string value = characteristic->getValue();
+        if (value.empty()) {
+            return;
+        }
+        const uint8_t *data = (const uint8_t *)value.data();
+        switch (data[0]) {
+        case 0x00: {
+            if (value.length() < 5) {
+                Debug.println("got short artwork begin message");
+                return;
+            }
+            uint16_t w = data[1] | (data[2] << 8);
+            uint16_t h = data[3] | (data[4] << 8);
+            if (w > ART_MAX_WIDTH || h > ART_MAX_HEIGHT) {
+                Debug.println("rejecting oversized artwork frame");
+                return;
+            }
+            STATE.artWidth = w;
+            STATE.artHeight = h;
+            memset(ART_BUFFER, 0, ART_BUFFER_SIZE);
+            break;
+        }
+        case 0x01: {
+            if (value.length() < 6) {
+                Debug.println("got short artwork data message");
+                return;
+            }
+            uint32_t offset = data[1] | (data[2] << 8) | (data[3] << 16) | ((uint32_t)data[4] << 24);
+            size_t len = value.length() - 5;
+            if (offset + len > ART_BUFFER_SIZE) {
+                Debug.println("rejecting artwork data past end of buffer");
+                return;
+            }
+            memcpy(ART_BUFFER + offset, data + 5, len);
+            break;
+        }
+        case 0x02: {
+            if (STATE.artWidth == 0 || STATE.artHeight == 0) {
+                Debug.println("ignoring artwork show, no frame uploaded");
+                return;
+            }
+            Debug.println("showing artwork frame");
+            STATE.artMode = true;
+            DISP_DEBOUNCE = 100;
+            break;
+        }
+        case 0x03: {
+            Debug.println("leaving artwork mode");
+            STATE.artMode = false;
+            DISP_DEBOUNCE = 100;
+            break;
+        }
+        default: {
+            Debug.print("got unknown artwork opcode: ");
+            Debug.println(data[0]);
+            break;
+        }
+        }
+    }
+} ARTWORK_CALLBACKS; // }}}
+
 class FlushCallbacks : public NimBLECharacteristicCallbacks
 { // {{{
     void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &conn) override
@@ -376,6 +466,9 @@ void setup()
     characteristic->setCallbacks(&KEYVAL_CALLBACKS);
     characteristic = service->createCharacteristic(VECTOR_UUID, NIMBLE_PROPERTY::WRITE);
     characteristic->setCallbacks(&VECTOR_CALLBACKS);
+    characteristic = service->createCharacteristic(ARTWORK_UUID, NIMBLE_PROPERTY::WRITE |
+                                                                     NIMBLE_PROPERTY::WRITE_NR);
+    characteristic->setCallbacks(&ARTWORK_CALLBACKS);
 
     characteristic = service->createCharacteristic(FLUSH_UUID, NIMBLE_PROPERTY::WRITE);
     characteristic->setCallbacks(&FLUSH_CALLBACKS);
@@ -499,7 +592,11 @@ void loop()
         MF_DISPLAY.begin(THINKINK_MONO);
         MF_DISPLAY.clearBuffer();
         MF_DISPLAY.fillScreen(BG_COLOR);
-        drawStatic();
+        if (STATE.artMode) {
+            drawArt();
+        } else {
+            drawStatic();
+        }
         MF_DISPLAY.display();
         MF_DISPLAY.powerDown();
         Debug.println("drew to display");
@@ -666,6 +763,14 @@ void drawStatic()
     // host message if provided (usually a timestamp)
     x = MF_DISPLAY.width() - (6 * strlen(STATE.hostMsg.c_str())) - 5;
     drawText(STATE.hostMsg.c_str(), x, y);
+} // }}}
+
+void drawArt()
+{ // {{{
+    // center the frame in case the host sent something smaller than the panel
+    int16_t x = (MF_DISPLAY.width() - STATE.artWidth) / 2;
+    int16_t y = (MF_DISPLAY.height() - STATE.artHeight) / 2;
+    MF_DISPLAY.drawBitmap(x, y, ART_BUFFER, STATE.artWidth, STATE.artHeight, FG_COLOR);
 } // }}}
 
 void drawLowBatt()

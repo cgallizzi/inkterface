@@ -29,10 +29,14 @@ class Steam : public QObject
 
     QString steamDir();
     QString currentUser(bool account_name = false);
+    QString currentUserId();
     QString steamVersion();
     QVariantMap libraryFolders();
 
     int installedAppCount();
+    double appPlaytimeMinutes(const QString &appid);
+    // returns {unlocked, total}, {-1, -1} when not (yet) known
+    QPair<int, int> achievements(const QString &appid);
 
     QVariantMap appManifest(const QString &appid);
     QString appName(const QString &appid);
@@ -46,22 +50,30 @@ class Steam : public QObject
   public slots:
     void watchConsoleLog(bool start = false);
     void getAppDetails(QString appid, bool emit_start = false, bool emit_stop = false);
+    void fetchAchievements(const QString &appid);
 
   signals:
     void appStarted(steam::App details);
     void appStopped(steam::App details);
     void appDetails(steam::App details);
+    void achievementsUpdated(QString appid);
 
   private slots:
     void appDetailsReply(QString appid, bool emit_start = false, bool emit_stop = false);
+    void achievementsReply(QString appid);
 
   private:
     QNetworkAccessManager *m_netman = nullptr;
     QTimer *m_consoleTimer = nullptr;
     QFile *m_consoleLog = nullptr;
     QMap<QString, App> m_appCache;
+    QMap<QString, QPair<int, int>> m_achievementCache;
 
     App m_runningApp;
+
+    // walks nested QVariantMaps by key, matching keys case-insensitively
+    // since valve's VDF files are inconsistent about casing
+    static QVariant vdfGet(const QVariantMap &map, const QStringList &path);
 };
 
 }; /* namespace steam */

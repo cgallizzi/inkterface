@@ -36,6 +36,8 @@ class Panel : public QObject
   private slots:
     void connCheck();
     void sendState();
+    void onArtworkFrame(QByteArray bits, quint16 width, quint16 height);
+    void onArtworkClear();
 
     void clearConnection();
     void onControllerStateChanged(QLowEnergyController::ControllerState state);
@@ -64,6 +66,18 @@ class Panel : public QObject
     void writeKeyVal(const uint8_t &index, const QString &key, const QString &value);
     void writePoints(const uint8_t &index, const PanelField *field);
     void flushDisplay();
+
+    // artwork frames are chunked into a queue of messages that are written
+    // one at a time, each on completion of the previous write
+    QList<QByteArray> m_artQueue;
+    bool m_artSending = false;
+    // most recent frame, kept so a (re)connected panel gets the artwork too
+    QByteArray m_pendingArtBits;
+    quint16 m_pendingArtWidth = 0;
+    quint16 m_pendingArtHeight = 0;
+
+    void queueArtworkFrame();
+    void sendArtwork();
 };
 
 #endif /* PANEL_HPP */

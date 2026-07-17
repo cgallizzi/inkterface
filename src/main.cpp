@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QGuiApplication>
 #include <QDebug>
 #include <QDir>
 #include <QFont>
@@ -94,7 +95,11 @@ int runUi(int argc, char *argv[])
 int runHeadless(int argc, char *argv[])
 {
     qDebug() << "Running headless...";
-    QCoreApplication app(argc, argv);
+    // artwork frames are composed with QPainter and fonts, which needs a
+    // gui application; the offscreen platform keeps it display-free so the
+    // service still runs fine from a systemd unit
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    QGuiApplication app(argc, argv);
     UnSig unsig(&app);
     unsig.catchSignal(SIGINT);
     unsig.catchSignal(SIGTERM);
@@ -103,6 +108,9 @@ int runHeadless(int argc, char *argv[])
     app.setOrganizationName(ORG_NAME);
     app.setOrganizationDomain(ORG_DOMAIN);
     app.setApplicationVersion(PROJECT_GITREV);
+    if (!registerFonts()) {
+        qWarning() << "Failed to register custom fonts!";
+    }
 
     Panel panel(&app);
 

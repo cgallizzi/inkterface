@@ -6,6 +6,7 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QSettings>
+#include <QXmlStreamReader>
 
 using namespace Qt::Literals::StringLiterals;
 
@@ -45,6 +46,112 @@ QString Steam::currentUser(bool account_name)
         }
     }
     return result;
+}
+
+QString Steam::currentUserId()
+{
+    QString result;
+    QVariantMap loginusers = loadVDF(steamDir() + "/config/loginusers.vdf");
+    const auto users = loginusers.value("users").toMap();
+    for (auto it = users.cbegin(), end = users.cend(); it != end; ++it) {
+        if (it.value().toMap().value("MostRecent").value<QByteArray>() == "1"_ba) {
+            result = it.key();
+            break;
+        }
+    }
+    return result;
+}
+
+QVariant Steam::vdfGet(const QVariantMap &map, const QStringList &path)
+{
+    QVariant node = map;
+    for (const auto &key : path) {
+        const auto sub = node.toMap();
+        auto it = sub.cbegin();
+        const auto end = sub.cend();
+        for (; it != end; ++it) {
+            if (it.key().compare(key, Qt::CaseInsensitive) == 0) {
+                break;
+            }
+        }
+        if (it == end) {
+            return {};
+        }
+        node = it.value();
+    }
+    return node;
+}
+
+double Steam::appPlaytimeMinutes(const QString &appid)
+{
+    const QString steam64 = currentUserId();
+    if (steam64.isEmpty() || appid.isEmpty()) {
+        return -1;
+    }
+    // account id is the low 32 bits of the steam64 id
+    const quint32 accountid = quint32(steam64.toULongLong() & 0xFFFFFFFFULL);
+    const QString path =
+        u"%1/userdata/%2/config/localconfig.vdf"_s.arg(steamDir(), QString::number(accountid));
+    const QVariantMap config = loadVDF(path);
+    const QVariant playtime =
+        vdfGet(config, {u"UserLocalConfigStore"_s, u"Software"_s, u"Valve"_s, u"Steam"_s,
+                        u"apps"_s, appid, u"Playtime"_s});
+    if (!playtime.isValid()) {
+        return -1;
+    }
+    return playtime.toDouble();
+}
+
+QPair<int, int> Steam::achievements(const QString &appid)
+{
+    return m_achievementCache.value(appid, {-1, -1});
+}
+
+void Steam::fetchAchievements(const QString &appid)
+{
+    const QString steam64 = currentUserId();
+    if (steam64.isEmpty() || appid.isEmpty()) {
+        return;
+    }
+    // the community endpoint needs no API key, it just requires the user's
+    // profile (and game details) to be public; when it isn't we cache a miss
+    // and the readout stays at "--"
+    auto req = QNetworkRequest(u"https://steamcommunity.com/profiles/%1/stats/%2/achievements/"
+                               u"?xml=1"_s.arg(steam64, appid));
+    auto reply = m_netman->get(req);
+    QTimer::singleShot(10000, reply, &QNetworkReply::abort);
+    connect(reply, &QNetworkReply::finished, this, [this, appid]() { achievementsReply(appid); });
+}
+
+void Steam::achievementsReply(QString appid)
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
+    reply->deleteLater();
+    if (!reply->isOpen() || reply->error() != QNetworkReply::NoError) {
+        qWarning() << "Getting achievements failed:" << reply->errorString();
+        return;
+    }
+    int unlocked = 0;
+    int total = 0;
+    QXmlStreamReader xml(reply->readAll());
+    while (!xml.atEnd()) {
+        if (xml.readNext() != QXmlStreamReader::StartElement) {
+            continue;
+        }
+        if (xml.name() == u"achievement"_s) {
+            total += 1;
+            if (xml.attributes().value(u"closed"_s) == u"1"_s) {
+                unlocked += 1;
+            }
+        }
+    }
+    if (total == 0) {
+        qDebug() << "no achievements visible for" << appid << "(none, or private profile)";
+        return;
+    }
+    qDebug() << "achievements for" << appid << ":" << unlocked << "/" << total;
+    m_achievementCache[appid] = {unlocked, total};
+    emit achievementsUpdated(appid);
 }
 
 QString Steam::steamVersion()
