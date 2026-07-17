@@ -1,4 +1,4 @@
-﻿# Inkterface: Now Playing Edition
+# Inkterface: Now Playing Edition
 
 An e-ink faceplate for your Steam Machine that shows the box art, playtime,
 and achievement progress of whatever you're playing — plus all the original

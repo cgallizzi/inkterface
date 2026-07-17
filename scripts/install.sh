@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 # Inkterface one-line installer for the Steam Machine (or any SteamOS/Linux box):
 #   curl -fsSL https://raw.githubusercontent.com/cgallizzi/inkterface/main/scripts/install.sh | sh
 # Downloads the latest release AppImage to ~/Applications and launches it so
