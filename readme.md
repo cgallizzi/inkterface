@@ -70,7 +70,9 @@ hardware and working from source.
 
 ## Assembly
 
-Check out the video `./docs/Inkterface Assembly.mp4` for a quick assembly tutorial,
+Check out the assembly tutorial video in
+[the upstream repo](https://gitlab.steamos.cloud/SteamHardware/SteamMachine/inkterface/-/blob/main/docs/Inkterface%20Assembly.mp4)
+(kept out of this fork because it exceeds GitHub's file size limit),
 or if you'd prefer there is a PDF version too `./docs/Inkterface Assembly.pdf`.
 
 **_Warning: The screws will thread themselves into the plastic, but be VERY gentle
