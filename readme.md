@@ -1,4 +1,54 @@
-# Inkterface, an e-ink faceplate for your Steam Machine.
+# Inkterface: Now Playing Edition
+
+An e-ink faceplate for your Steam Machine that shows the box art, playtime,
+and achievement progress of whatever you're playing — plus all the original
+system telemetry readouts.
+
+> This is a community fork of
+> [Valve's Inkterface](https://gitlab.steamos.cloud/SteamHardware/SteamMachine/inkterface),
+> created by NaKyle Wright at Valve and released under the MIT license.
+> All of the hardware design, assembly docs, and the original firmware and
+> companion app are their work — this fork adds the artwork/"now playing"
+> features and easier install tooling on top. Thank you Valve for open
+> sourcing it!
+
+## What this fork adds
+
+* **Now Playing artwork mode**: when you launch a game, the panel switches to
+  that game's box art with your total playtime and achievement progress
+  rendered next to it (dithered for the e-ink look). When you quit, it goes
+  back to the regular telemetry layout. Toggle it with the `Box Art` button
+  in the configure screen.
+* **Game collectors**: `Game Time` and `Achievements` readouts you can put in
+  any panel field, alongside the stock CPU/GPU/fan stats.
+* **Browser firmware flasher**: flash your Feather from Chrome/Edge at the
+  project's GitHub Pages site — no toolchain install needed.
+* **One-line app install**: paste a single command on your Steam Machine and
+  you're done — no building, no USB sticks.
+
+Achievement data comes from the Steam Community profile endpoint and requires
+no API key, but your profile's game details need to be public for it to show.
+
+## Quick Install (this fork)
+
+**Firmware** — plug the Feather into any PC over USB and open the
+[web flasher](https://OWNER.github.io/inkterface/) in Chrome or Edge, then
+click Install for your board.
+
+**App** — on the Steam Machine, open a terminal in desktop mode and run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/OWNER/inkterface/main/scripts/install.sh | sh
+```
+
+That downloads the latest release to `~/Applications`, launches it, and from
+there you pick your panel and click Install (bottom right) to set up the
+background service. Prebuilt AppImages are also on the
+[releases page](https://github.com/OWNER/inkterface/releases) if you'd rather
+grab one manually.
+
+Everything below is the original upstream documentation for building the
+hardware and working from source.
 
 
 ## Required Hardware
