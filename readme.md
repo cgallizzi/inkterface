@@ -1,4 +1,4 @@
-<img width="426" height="240" alt="Video Project 2" src="https://github.com/user-attachments/assets/fad7e269-4a9d-436a-a6c9-2e3d17211624" />
+
 
 
 
@@ -10,6 +10,8 @@
 An e-ink faceplate for your Steam Machine that shows the box art, playtime,
 and achievement progress of whatever you're playing — plus all the original
 system telemetry readouts.
+
+<img width="426" height="240" alt="Video Project 2" src="https://github.com/user-attachments/assets/fad7e269-4a9d-436a-a6c9-2e3d17211624" />
 
 > This is a community fork of
 > [Valve's Inkterface](https://gitlab.steamos.cloud/SteamHardware/SteamMachine/inkterface),
