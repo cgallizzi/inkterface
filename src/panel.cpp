@@ -197,9 +197,12 @@ void Panel::queueArtworkFrame()
     begin.append(char((m_pendingArtHeight >> 8) & 0xFF));
     m_artQueue.append(begin);
 
-    // 5 bytes of chunk header, 3 bytes of ATT header
-    const int mtu = m_controller ? m_controller->mtu() : 23;
-    const int chunkSize = qBound(15, mtu - 8, 244);
+    // 5 bytes of chunk header, 3 bytes of ATT header; Qt's BlueZ backend
+    // often can't report the negotiated MTU and claims the 23-byte minimum,
+    // while the panel firmware always negotiates 256 - and BlueZ splits
+    // oversized writes into long-write procedures transparently anyway, so
+    // a fixed chunk size is both safe and dramatically faster
+    const int chunkSize = 244;
     for (qsizetype offset = 0; offset < m_pendingArtBits.size(); offset += chunkSize) {
         QByteArray chunk;
         chunk.append(char(0x01));
