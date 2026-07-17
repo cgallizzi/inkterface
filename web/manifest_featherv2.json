@@ -1,0 +1,11 @@
+{
+  "name": "Inkterface (Adafruit Feather ESP32 V2)",
+  "version": "latest",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [{ "path": "inkterface-featherv2.bin", "offset": 0 }]
+    }
+  ]
+}

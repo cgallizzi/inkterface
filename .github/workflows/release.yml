@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  firmware:
+    name: Build firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO and esptool
+        run: pip install platformio esptool
+
+      - name: Build both board variants
+        working-directory: firmware
+        run: |
+          pio run -e featherv1 -e featherv2
+
+      - name: Merge flashable images
+        working-directory: firmware
+        run: |
+          BOOT_APP0=$HOME/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
+          # feather v1 is an esp32-s3, bootloader lives at 0x0
+          python -m esptool --chip esp32s3 merge_bin -o inkterface-featherv1.bin \
+            0x0 .pio/build/featherv1/bootloader.bin \
+            0x8000 .pio/build/featherv1/partitions.bin \
+            0xe000 "$BOOT_APP0" \
+            0x10000 .pio/build/featherv1/firmware.bin
+          # feather v2 is a classic esp32, bootloader lives at 0x1000
+          python -m esptool --chip esp32 merge_bin -o inkterface-featherv2.bin \
+            0x1000 .pio/build/featherv2/bootloader.bin \
+            0x8000 .pio/build/featherv2/partitions.bin \
+            0xe000 "$BOOT_APP0" \
+            0x10000 .pio/build/featherv2/firmware.bin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: firmware/inkterface-feather*.bin
+
+  appimage:
+    name: Build AppImage
+    # pinned to 22.04 so the AppImage runs on a wide range of glibc versions
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq build-essential cmake ninja-build patchelf \
+            desktop-file-utils file libfuse2 libgl1-mesa-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev \
+            libxcb-xfixes0-dev libxcb-randr0-dev libxcb-image0-dev \
+            libxcb-keysyms1-dev libxcb-icccm4-dev libxcb-sync-dev \
+            libxcb-xinerama0-dev libxcb-xkb-dev libxcb-util-dev libxcb-cursor-dev \
+            libdbus-1-dev libfontconfig1-dev libfreetype6-dev libglu1-mesa-dev \
+            libssl-dev libpulse-dev libasound2-dev libudev-dev
+
+      - name: Install Qt
+        run: |
+          pip install aqtinstall
+          aqt install-qt linux desktop 6.9.0 linux_gcc_64 \
+            --outputdir "$HOME/qt" --modules qtserialport qtconnectivity
+
+      - name: Build and package
+        run: |
+          export PATH="$HOME/qt/6.9.0/gcc_64/bin:$PATH"
+          export CMAKE_PREFIX_PATH="$HOME/qt/6.9.0/gcc_64"
+          bash scripts/build.sh deploy
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: |
+            dist-linux-x86_64/Inkterface.AppImage
+            dist-linux-x86_64/launch.sh
+
+  release:
+    name: Publish release
+    needs: [firmware, appimage]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Inkterface.AppImage
+            inkterface-featherv1.bin
+            inkterface-featherv2.bin
+
+  pages:
+    name: Deploy web flasher
+    needs: [firmware]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: web/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/
+
+      - uses: actions/deploy-pages@v4

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inkterface Firmware Flasher</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: ui-monospace, "Cascadia Mono", "IBM Plex Mono", monospace;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.6rem; }
+    .board {
+      border: 2px solid currentColor;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+    }
+    .board h2 { margin-top: 0; font-size: 1.1rem; }
+    .muted { opacity: 0.75; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>Inkterface Firmware Flasher</h1>
+  <p>
+    Flash the <a href="https://gitlab.steamos.cloud/SteamHardware/SteamMachine/inkterface">Inkterface</a>
+    e-ink faceplate firmware straight from your browser &mdash; no tools to install.
+  </p>
+  <ol>
+    <li>Plug your Feather board into this computer over USB.</li>
+    <li>Click the install button for your board below.</li>
+    <li>Pick the board's serial port in the popup and follow the prompts.</li>
+  </ol>
+  <p class="muted">
+    Requires Chrome or Edge (browsers with Web Serial support). If the board
+    doesn't show up, hold its BOOT/DFU button while plugging it in.
+  </p>
+
+  <div class="board">
+    <h2>Adafruit Feather ESP32-S3 (Feather V1 build)</h2>
+    <p class="muted">The board from the official parts list, USB-C connector.</p>
+    <esp-web-install-button manifest="manifest_featherv1.json"></esp-web-install-button>
+  </div>
+
+  <div class="board">
+    <h2>Adafruit Feather ESP32 V2 (Feather V2 build)</h2>
+    <p class="muted">The older plain-ESP32 Feather, USB-C, CH9102 serial chip.</p>
+    <esp-web-install-button manifest="manifest_featherv2.json"></esp-web-install-button>
+  </div>
+
+  <p class="muted">
+    This fork adds a "now playing" artwork mode (game box art, playtime, and
+    achievement progress). Based on Valve's Inkterface, MIT licensed.
+  </p>
+</body>
+</html>
