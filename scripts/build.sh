@@ -65,6 +65,13 @@ if [[ "$DEPLOY" == "1" && "$(uname)" == "Linux" ]]; then
 
     echo "Building appimage..."
     APPIMAGE_EXTRACT_AND_RUN=1 QTDIR=$QT_DIR ./appimagetool-*.AppImage deploy $APP_DIR/usr/share/applications/*.desktop
+
+    echo "Adding offscreen platform plugin for the headless service..."
+    # the deploy step only bundles the platform plugin the desktop app uses
+    # (xcb), but the background service runs on the offscreen platform
+    PLATFORMS_DIR=$(dirname "$(find $APP_DIR -name libqxcb.so | head -n 1)")
+    cp "$QT_DIR/plugins/platforms/libqoffscreen.so" "$PLATFORMS_DIR/."
+
     APPIMAGE_EXTRACT_AND_RUN=1 VERSION=$GITREV ./appimagetool-*.AppImage $APP_DIR
 
     # TODO: remove unecessary large files from appdir
