@@ -1,3 +1,8 @@
+<img width="426" height="240" alt="Video Project 2" src="https://github.com/user-attachments/assets/fad7e269-4a9d-436a-a6c9-2e3d17211624" />
+
+
+
+
 <img width="4000" height="3000" alt="inkterface now playing" src="https://github.com/user-attachments/assets/2416b7df-2457-450f-980d-5646910e5a54" />
 
 # Inkterface: Now Playing Edition
