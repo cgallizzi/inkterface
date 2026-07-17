@@ -1,4 +1,4 @@
-# Inkterface: Now Playing Edition
+﻿# Inkterface: Now Playing Edition
 
 An e-ink faceplate for your Steam Machine that shows the box art, playtime,
 and achievement progress of whatever you're playing — plus all the original
@@ -32,19 +32,19 @@ no API key, but your profile's game details need to be public for it to show.
 ## Quick Install (this fork)
 
 **Firmware** — plug the Feather into any PC over USB and open the
-[web flasher](https://OWNER.github.io/inkterface/) in Chrome or Edge, then
+[web flasher](https://cgallizzi.github.io/inkterface/) in Chrome or Edge, then
 click Install for your board.
 
 **App** — on the Steam Machine, open a terminal in desktop mode and run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/inkterface/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/cgallizzi/inkterface/main/scripts/install.sh | sh
 ```
 
 That downloads the latest release to `~/Applications`, launches it, and from
 there you pick your panel and click Install (bottom right) to set up the
 background service. Prebuilt AppImages are also on the
-[releases page](https://github.com/OWNER/inkterface/releases) if you'd rather
+[releases page](https://github.com/cgallizzi/inkterface/releases) if you'd rather
 grab one manually.
 
 Everything below is the original upstream documentation for building the

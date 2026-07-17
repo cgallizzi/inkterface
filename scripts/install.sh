@@ -1,11 +1,11 @@
-#!/bin/sh
+﻿#!/bin/sh
 # Inkterface one-line installer for the Steam Machine (or any SteamOS/Linux box):
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/inkterface/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/cgallizzi/inkterface/main/scripts/install.sh | sh
 # Downloads the latest release AppImage to ~/Applications and launches it so
 # you can pick your panel and install the background service.
 set -e
 
-REPO="OWNER/inkterface"
+REPO="cgallizzi/inkterface"
 APP_DIR="$HOME/Applications"
 APP_PATH="$APP_DIR/Inkterface.AppImage"
 
