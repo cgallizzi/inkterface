@@ -33,11 +33,25 @@
 #define SPARKBOX_WIDTH 209
 
 // full-panel artwork framebuffer, 1bpp row-major with MSB-first bytes
-// (the same layout Adafruit_GFX::drawBitmap() expects)
+// (the same layout Adafruit_GFX::drawBitmap() expects); allocated lazily on
+// the first artwork upload because internal DRAM is nearly exhausted by the
+// display's own buffers at boot - PSRAM is preferred when the board has it
 #define ART_MAX_WIDTH 648
 #define ART_MAX_HEIGHT 480
 #define ART_BUFFER_SIZE ((ART_MAX_WIDTH / 8) * ART_MAX_HEIGHT)
-static uint8_t ART_BUFFER[ART_BUFFER_SIZE];
+static uint8_t *ART_BUFFER = nullptr;
+
+static bool artBufferReady()
+{
+    if (ART_BUFFER != nullptr) {
+        return true;
+    }
+    ART_BUFFER = (uint8_t *)ps_malloc(ART_BUFFER_SIZE);
+    if (ART_BUFFER == nullptr) {
+        ART_BUFFER = (uint8_t *)malloc(ART_BUFFER_SIZE);
+    }
+    return ART_BUFFER != nullptr;
+}
 
 #define INTERFACE_VERSION "IFv01"
 
@@ -369,6 +383,10 @@ class ArtworkCallbacks : public NimBLECharacteristicCallbacks
                 Debug.println("rejecting oversized artwork frame");
                 return;
             }
+            if (!artBufferReady()) {
+                Debug.println("no memory for artwork frame, rejecting upload");
+                return;
+            }
             STATE.artWidth = w;
             STATE.artHeight = h;
             memset(ART_BUFFER, 0, ART_BUFFER_SIZE);
@@ -381,6 +399,10 @@ class ArtworkCallbacks : public NimBLECharacteristicCallbacks
             }
             uint32_t offset = data[1] | (data[2] << 8) | (data[3] << 16) | ((uint32_t)data[4] << 24);
             size_t len = value.length() - 5;
+            if (ART_BUFFER == nullptr) {
+                Debug.println("ignoring artwork data before a begin message");
+                return;
+            }
             if (offset + len > ART_BUFFER_SIZE) {
                 Debug.println("rejecting artwork data past end of buffer");
                 return;
@@ -569,7 +591,9 @@ void loop()
         BATT_DEBOUNCE = 1000;
     }
 
-    if (last_battv < BATT_MINV) {
+    // without a fuel gauge last_battv stays 0 forever, which must not be
+    // mistaken for a drained battery
+    if (MAXLIPO_PRESENT && last_battv < BATT_MINV) {
         Debug.println("drawing low battery message");
         DISP_DEBOUNCE = 0;
         MF_DISPLAY.begin(THINKINK_MONO);
@@ -767,6 +791,9 @@ void drawStatic()
 
 void drawArt()
 { // {{{
+    if (ART_BUFFER == nullptr) {
+        return;
+    }
     // center the frame in case the host sent something smaller than the panel
     int16_t x = (MF_DISPLAY.width() - STATE.artWidth) / 2;
     int16_t y = (MF_DISPLAY.height() - STATE.artHeight) / 2;
