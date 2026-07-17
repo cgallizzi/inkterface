@@ -1,3 +1,5 @@
+<img width="4000" height="3000" alt="inkterface now playing" src="https://github.com/user-attachments/assets/2416b7df-2457-450f-980d-5646910e5a54" />
+
 # Inkterface: Now Playing Edition
 
 An e-ink faceplate for your Steam Machine that shows the box art, playtime,
